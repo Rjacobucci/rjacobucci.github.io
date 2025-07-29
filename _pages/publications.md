@@ -112,8 +112,4 @@ My research addresses fundamental questions at the intersection of:
 
 ## Complete Publication List
 
-{% include base_path %}
-
-{% for post in site.publications reversed %}
-  {% include archive-single.html %}
-{% endfor %}
+For a comprehensive list of all publications, please visit my [Google Scholar profile](https://scholar.google.com/citations?user=K7_cclwAAAAJ&hl=en).
