@@ -7,18 +7,40 @@ author_profile: true
 
 ## Open Source Software & Tools
 
-This page showcases software packages, tools, and computational resources developed for psychological research and machine learning applications.
+This page showcases R packages and computational tools developed for psychological research, structural equation modeling, and machine learning applications.
 
-### R Packages
+## R Packages
 
-Information about R packages for statistical modeling and machine learning in psychology will be displayed here.
+### regsem
+Allows ridge or lasso penalties on parameters in structural equation models. This package implements regularization methods for SEM as described in Jacobucci, Grimm, & McArdle (2016).
 
-### Python Libraries
+**Resources:**
+- [Google Group](https://groups.google.com/d/forum/regsem) - Community support and discussions
+- [Tutorial](http://rpubs.com/RJacobucci/351598) - Getting started guide
 
-Python tools for clinical research, natural language processing, and machine learning applications.
+### dtree
+A flexible decision tree package that combines features from multiple decision tree algorithms. This package allows users to run and compare multiple algorithms and includes a `stable()` function that uses bootstrap replications for enhanced model stability.
 
-### Research Tools
+**Key Features:**
+- Multiple algorithm comparison
+- Bootstrap-based stability assessment
+- Unified interface for different tree methods
 
-Custom software solutions for analyzing smartphone usage, ecological momentary assessments, and multimodal patient data.
+### longRPart2
+An updated version of the original longRPart package that creates subgroups based on mixed effects models. This package extends recursive partitioning methods to longitudinal data contexts.
 
-<!-- Add specific software projects, GitHub links, documentation, and usage examples here -->
+**Applications:**
+- Longitudinal data subgroup identification
+- Mixed effects model-based partitioning
+
+### MplusTrees
+Uses recursive partitioning to create homogeneous subgroups based on structural equation models fitted in Mplus. This package bridges tree-based methods with latent variable modeling.
+
+**Features:**
+- Integration with Mplus software
+- SEM-based subgroup identification
+- Recursive partitioning for latent variable models
+
+---
+
+All packages are developed and maintained by Ross Jacobucci for advancing statistical methods in psychological research. For installation instructions, documentation, and source code, visit the respective package repositories on GitHub.
