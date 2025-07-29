@@ -9,32 +9,26 @@ redirect_from:
 
 {% include base_path %}
 
-Education
-======
-* B.S. in GitHub, GitHub University, 2012
-* M.S. in Jekyll, GitHub University, 2014
-* Ph.D in Version Control Theory, GitHub University, 2018 (expected)
+## Current Position
+**Research Assistant Professor**  
+Center for Healthy Minds  
+University of Wisconsin-Madison
 
-Work experience
-======
-* Summer 2015: Research Assistant
-  * Github University
-  * Duties included: Tagging issues
-  * Supervisor: Professor Git
+## Research Interests
+* Clinical methodology and machine learning applications in psychological research
+* Suicide risk factors and detection using computational methods
+* Natural language processing and large language models for clinical applications
+* Smartphone usage pattern analysis and ecological momentary assessments
+* Multimodal patient data processing and custom foundation model development
+* Digital communication analysis for personalized intervention systems
 
-* Fall 2015: Research Assistant
-  * Github University
-  * Duties included: Merging pull requests
-  * Supervisor: Professor Hub
-  
-Skills
-======
-* Skill 1
-* Skill 2
-  * Sub-skill 2.1
-  * Sub-skill 2.2
-  * Sub-skill 2.3
-* Skill 3
+## Contact Information
+* **Email:** jacobucci@wisc.edu or rcjacobuc@gmail.com
+* **Location:** Madison, WI
+
+---
+
+For a complete and up-to-date CV, please visit my [GitHub repository](https://github.com/Rjacobucci/CV/blob/master/rj_cv.pdf).
 
 Publications
 ======
