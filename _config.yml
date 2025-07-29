@@ -10,7 +10,7 @@ locale                   : "en-US"
 title                    : "Ross Jacobucci"
 title_separator          : "-"
 name                     : &name "Ross Jacobucci"
-description              : &description "Research Assistant Professor at University of Wisconsin-Madison. Clinical methodologist specializing in machine learning for psychological research."
+description              : &description "Leading researcher at the intersection of machine learning and mental health. Developing innovative digital phenotyping methods to predict and prevent mental health crises through smartphone data analysis."
 url                      : https://rjacobucci.com # the base hostname & protocol for your site e.g. "https://mmistakes.github.io"
 baseurl                  : "" # the subpath of your site, e.g. "/blog"
 repository               : "rjacobucci/rjacobucci.github.io"
@@ -82,7 +82,7 @@ analytics:
 author:
   name             : "Ross Jacobucci"
   avatar           : "profile.png"
-  bio              : "Research Assistant Professor at University of Wisconsin-Madison. Clinical methodologist specializing in machine learning for psychological research, suicide risk factors, and computational methods."
+  bio              : "Pioneering ML for mental health | 2,668+ citations | Author of 'Machine Learning for Social & Behavioral Research' | Digital phenotyping expert"
   location         : "Madison, WI"
   employer         : "University of Wisconsin-Madison"
   pubmed           : 
@@ -102,7 +102,7 @@ author:
   instagram        :
   impactstory      : 
   lastfm           :
-  linkedin         :
+  linkedin         : "ross-jacobucci"
   orcid            : 
   pinterest        :
   soundcloud       :
