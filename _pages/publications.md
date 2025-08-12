@@ -15,7 +15,43 @@ With **2,668+ citations** and an active research program spanning machine learni
 
 ---
 
-## Featured Recent Publications (2020-2024)
+## Featured Recent Publications (2020-{{ site.time | date: '%Y' }})
+
+{% assign current_year = site.time | date: '%Y' | plus: 0 %}
+
+{% if current_year >= 2025 %}
+### {{ current_year }}
+
+**Note:** Publications for {{ current_year }} are selected based on first/senior authorship and journal impact factor. This section will be updated as new publications are added throughout the year.
+
+{% comment %}
+To add {{ current_year }} publications:
+1. Create publication files in _publications/ with date: {{ current_year }}-MM-DD
+2. Add 'author_position' field (e.g., 'first', 'senior', 'middle')
+3. Add 'impact_factor' field with journal's impact factor
+4. Publications will automatically appear here if they meet highlighting criteria
+{% endcomment %}
+
+{% assign year_pubs = site.publications | where_exp: "pub", "pub.date contains current_year" | sort: 'date' | reverse %}
+{% assign highlighted_pubs = year_pubs | where_exp: "pub", "pub.author_position == 'first' or pub.author_position == 'senior'" | sort: 'impact_factor' | reverse %}
+
+{% for pub in highlighted_pubs limit:3 %}
+**{{ pub.title }}**  
+*{{ pub.venue }}*, {{ pub.date | date: '%Y' }}  
+**Authors:** {{ pub.authors | default: pub.citation | split: '(' | first }}
+
+{% if pub.key_impact %}
+**Key Impact:** {{ pub.key_impact }}
+{% endif %}
+
+{% endfor %}
+
+{% if highlighted_pubs.size == 0 %}
+*Check back soon for {{ current_year }} publications.*
+{% endif %}
+
+---
+{% endif %}
 
 ### 2024
 

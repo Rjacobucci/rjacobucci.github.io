@@ -1,0 +1,30 @@
+---
+title: "Example Publication Title for 2025"
+collection: publications
+permalink: /publication/2025-example
+excerpt: 'Brief description of the publication'
+date: 2025-01-01
+venue: 'Journal Name'
+authors: 'Jacobucci, R., Author2, A., & Author3, B.'
+citation: 'Jacobucci, R., Author2, A., & Author3, B. (2025). &quot;Example Publication Title.&quot; <i>Journal Name</i>, volume(issue), pages.'
+author_position: 'first'  # Options: 'first', 'senior', 'middle'
+impact_factor: 5.2  # Journal's impact factor
+key_impact: 'Brief description of the key impact or contribution of this work.'
+---
+
+## Abstract
+
+Abstract text goes here...
+
+## Key Contributions
+
+- Contribution 1
+- Contribution 2
+- Contribution 3
+
+Note: This is a template file. To use it:
+1. Remove the .example extension
+2. Update all fields with actual publication information
+3. Set author_position to 'first' or 'senior' for highlighting
+4. Include the journal's impact factor
+5. The publication will automatically appear in the current year section if criteria are met
