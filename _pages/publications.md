@@ -20,6 +20,16 @@ With **2,668+ citations** and an active research program spanning machine learni
 {% assign current_year = site.time | date: '%Y' | plus: 0 %}
 
 {% if current_year >= 2025 %}
+{% assign has_current_year_pubs = false %}
+{% for pub in site.publications %}
+  {% assign pub_year = pub.date | date: '%Y' | plus: 0 %}
+  {% if pub_year == current_year %}
+    {% assign has_current_year_pubs = true %}
+    {% break %}
+  {% endif %}
+{% endfor %}
+
+{% if has_current_year_pubs %}
 ### {{ current_year }}
 
 **Note:** Publications for {{ current_year }} are selected based on first/senior authorship and journal impact factor. This section will be updated as new publications are added throughout the year.
@@ -64,6 +74,7 @@ To add {{ current_year }} publications:
 {% endif %}
 
 ---
+{% endif %}
 {% endif %}
 
 ### 2024
