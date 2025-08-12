@@ -32,7 +32,8 @@ To add {{ current_year }} publications:
 4. Publications will automatically appear here if they meet highlighting criteria
 {% endcomment %}
 
-{% assign year_pubs = site.publications | where_exp: "pub", "pub.date contains current_year" | sort: 'date' | reverse %}
+{% assign year_string = current_year | append: '' %}
+{% assign year_pubs = site.publications | where_exp: "pub", "pub.date | date: '%Y' == year_string" | sort: 'date' | reverse %}
 {% assign highlighted_pubs = year_pubs | where_exp: "pub", "pub.author_position == 'first' or pub.author_position == 'senior'" | sort: 'impact_factor' | reverse %}
 
 {% for pub in highlighted_pubs limit:3 %}
