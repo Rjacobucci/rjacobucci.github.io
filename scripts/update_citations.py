@@ -19,26 +19,49 @@ def get_citations_from_scholar(scholar_id):
     }
     
     try:
-        response = requests.get(url, headers=headers)
+        response = requests.get(url, headers=headers, timeout=30)
+        print(f"Response status: {response.status_code}")
         response.raise_for_status()
         
         soup = BeautifulSoup(response.text, 'html.parser')
         
-        # Find the citation count in the stats table
+        # Debug: save the HTML to see what we're getting
+        with open('debug_scholar_response.html', 'w', encoding='utf-8') as f:
+            f.write(response.text[:10000])  # First 10k chars for debugging
+        
+        # Method 1: Find the citation count in the stats table
         citation_element = soup.find('td', text='Citations')
         if citation_element:
             citation_count = citation_element.find_next_sibling('td').text
+            print(f"Found citations via method 1: {citation_count}")
             return int(citation_count)
         
-        # Alternative method: look for the citation count in the profile
+        # Method 2: Look for the citation count in the profile stats table
         stats_table = soup.find('table', {'id': 'gsc_rsb_st'})
         if stats_table:
             cells = stats_table.find_all('td', {'class': 'gsc_rsb_std'})
             if cells and len(cells) > 0:
+                print(f"Found citations via method 2: {cells[0].text}")
                 return int(cells[0].text)
+        
+        # Method 3: Try to find any element containing citation count
+        # Look for divs with class containing 'gsc_rsb_std'
+        citation_divs = soup.find_all(['td', 'div'], {'class': re.compile('gsc_rsb_std')})
+        print(f"Found {len(citation_divs)} potential citation elements")
+        for div in citation_divs[:5]:  # Check first 5
+            text = div.get_text(strip=True)
+            if text.isdigit() and int(text) > 100:  # Assuming citations > 100
+                print(f"Found potential citation count: {text}")
                 
+        print("Could not find citation count with any method")
+                
+    except requests.exceptions.RequestException as e:
+        print(f"Request error: {e}")
+        return None
     except Exception as e:
         print(f"Error fetching citations: {e}")
+        import traceback
+        traceback.print_exc()
         return None
     
     return None

@@ -26,14 +26,33 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r scripts/requirements.txt
     
-    - name: Update citations
+    - name: Update citations (hybrid approach)
+      id: update_citations
+      continue-on-error: true
       run: |
         cd ${{ github.workspace }}
-        python scripts/update_citations.py
+        python scripts/update_citations_hybrid.py
+    
+    - name: Fallback to Semantic Scholar only
+      if: steps.update_citations.outcome == 'failure'
+      run: |
+        cd ${{ github.workspace }}
+        python scripts/update_citations_semantic.py
+    
+    - name: Check for changes
+      id: check_changes
+      run: |
+        if [[ -n $(git status --porcelain) ]]; then
+          echo "changes=true" >> $GITHUB_OUTPUT
+        else
+          echo "changes=false" >> $GITHUB_OUTPUT
+        fi
     
     - name: Commit and push if changed
+      if: steps.check_changes.outputs.changes == 'true'
       run: |
         git config --global user.name 'github-actions[bot]'
         git config --global user.email 'github-actions[bot]@users.noreply.github.com'
         git add -A
-        git diff --staged --quiet || (git commit -m "Update citation count from Google Scholar" && git push)
+        git commit -m "Update citation count from automated sources"
+        git push
