@@ -38,7 +38,7 @@ I'm a Research Assistant Professor at the University of Wisconsin-Madison, pione
 ### 📊 By the Numbers
 - **2,668+** research citations
 - **70+** peer-reviewed publications
-- **Leading author** on groundbreaking digital mental health studies
+- **Contributing researcher** in digital mental health studies
 - **Active grants** in suicide prevention and digital health
 
 ### 🤝 Let's Connect
