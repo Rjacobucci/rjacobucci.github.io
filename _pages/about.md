@@ -46,4 +46,4 @@ I'm a Research Assistant Professor at the University of Wisconsin-Madison, pione
 I'm passionate about collaborations that advance mental health through technology. Whether you're interested in research partnerships, consulting, or learning more about my work:
 
 **Email:** jacobucci@wisc.edu | rcjacobuc@gmail.com  
-**Full CV:** [Download PDF](https://github.com/Rjacobucci/CV/blob/master/rj_cv.pdf)
+**Full CV:** [Download PDF](https://github.com/Rjacobucci/CV/raw/master/rj_cv.pdf)

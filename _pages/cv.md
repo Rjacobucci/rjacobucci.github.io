@@ -28,4 +28,4 @@ University of Wisconsin-Madison
 
 ---
 
-For a complete and up-to-date CV, please visit my [GitHub repository](https://github.com/Rjacobucci/CV/blob/master/rj_cv.pdf).
+For a complete and up-to-date CV, please [download the PDF](https://github.com/Rjacobucci/CV/raw/master/rj_cv.pdf).
