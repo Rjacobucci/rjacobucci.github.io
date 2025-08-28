@@ -10,7 +10,7 @@ redirect_from:
 
 ## Advancing Mental Health Through Machine Learning
 
-I'm a Research Assistant Professor at the University of Wisconsin-Madison, pioneering the intersection of machine learning and clinical psychology. With **2,668+ citations** and cutting-edge research in digital phenotyping, I develop computational methods that transform how we understand and predict mental health crises.
+I'm a Research Assistant Professor at the University of Wisconsin-Madison, pioneering the intersection of machine learning and clinical psychology. With cutting-edge research in digital phenotyping, I develop computational methods that transform how we understand and predict mental health crises.
 
 ### 🎯 Current Focus: Digital Mental Health Innovation
 
@@ -37,7 +37,7 @@ I'm a Research Assistant Professor at the University of Wisconsin-Madison, pione
 
 ### 📊 By the Numbers
 - **2,668+** research citations
-- **50+** peer-reviewed publications
+- **70+** peer-reviewed publications
 - **Leading author** on groundbreaking digital mental health studies
 - **Active grants** in suicide prevention and digital health
 
