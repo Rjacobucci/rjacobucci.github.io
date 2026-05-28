@@ -2,57 +2,70 @@ name: Update Google Scholar Citations
 
 on:
   schedule:
-    # Run weekly on Sundays at 2 AM UTC
+    # Weekly, Sundays 02:00 UTC
     - cron: '0 2 * * 0'
-  workflow_dispatch: # Allow manual triggering
+  workflow_dispatch:
+
+# Don't run multiple instances simultaneously
+concurrency:
+  group: update-citations
+  cancel-in-progress: false
 
 jobs:
   update-citations:
     runs-on: ubuntu-latest
-    
+    # Soft-fail: if scraping is blocked, don't email a red X every week.
+    continue-on-error: true
+
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-    
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.9'
-    
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r scripts/requirements.txt
-    
-    - name: Update citations from Google Scholar
-      id: update_citations
-      continue-on-error: true
-      run: |
-        cd ${{ github.workspace }}
-        python scripts/update_citations_scholar.py
-    
-    - name: Fallback to hybrid approach
-      if: steps.update_citations.outcome == 'failure'
-      run: |
-        cd ${{ github.workspace }}
-        python scripts/update_citations_hybrid.py
-    
-    - name: Check for changes
-      id: check_changes
-      run: |
-        if [[ -n $(git status --porcelain) ]]; then
-          echo "changes=true" >> $GITHUB_OUTPUT
-        else
-          echo "changes=false" >> $GITHUB_OUTPUT
-        fi
-    
-    - name: Commit and push if changed
-      if: steps.check_changes.outputs.changes == 'true'
-      run: |
-        git config --global user.name 'github-actions[bot]'
-        git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-        git add -A
-        git commit -m "Update citation count from Google Scholar"
-        git push
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r scripts/requirements.txt
+
+      - name: Try Google Scholar
+        id: scholar
+        continue-on-error: true
+        run: python scripts/update_citations_scholar.py
+
+      - name: Fallback to Semantic Scholar / hybrid sources
+        if: steps.scholar.outcome != 'success'
+        continue-on-error: true
+        run: python scripts/update_citations_hybrid.py
+
+      - name: Check for changes
+        id: check_changes
+        run: |
+          if [[ -n $(git status --porcelain) ]]; then
+            echo "changes=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changes=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit and push if changed
+        if: steps.check_changes.outputs.changes == 'true'
+        run: |
+          git config --global user.name  'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m "Auto: update citation count"
+          git push
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "Scholar step outcome:  ${{ steps.scholar.outcome }}"
+          echo "Changes committed:     ${{ steps.check_changes.outputs.changes }}"
+          if [[ "${{ steps.scholar.outcome }}" != "success" ]]; then
+            echo "::notice::Google Scholar scrape was blocked or failed. This is expected periodically; no action needed unless it persists for many weeks."
+          fi

@@ -1,18 +1,11 @@
 # Authors
+# Add author entries here for multi-author posts. The key must match the
+# `author:` field in a post's front matter.
 
-Name Name:
-  name        : "Name Name"
-  uri         : "http://name.com"
-  email       : "name@name.com"
-  bio         : "This is the first name."
-  avatar      : "bio-photo-2.jpg"
-  twitter     : "name"
-  google_plus : "Name"
-
-Name2 Name2:
-  name        : "Name2 Name2"
-  email       : "name2@name2.com"
-  bio         : "I ordered what?"
-  avatar      : "bio-photo.jpg"
-  twitter     : "name2"
-  google_plus : "Name"
+Ross Jacobucci:
+  name        : "Ross Jacobucci"
+  bio         : "Research Assistant Professor, University of Wisconsin-Madison"
+  avatar      : "headshot_2025.jpeg"
+  email       : "jacobucci@wisc.edu"
+  uri         : "https://rjacobucci.com"
+  googlescholar : "https://scholar.google.com/citations?user=K7_cclwAAAAJ&hl=en"
