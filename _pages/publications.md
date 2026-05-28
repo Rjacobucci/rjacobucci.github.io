@@ -7,7 +7,7 @@ author_profile: true
 
 ## Research Impact Overview
 
-With **2,668+ citations** and an active research program spanning machine learning, clinical psychology, and statistical methodology, my work focuses on developing computational methods for understanding complex psychological phenomena. My research has been particularly influential in advancing regularized structural equation modeling and examining the intersection of measurement and machine learning in psychology.
+My research program spans machine learning, clinical psychology, and statistical methodology, with a focus on developing computational methods for understanding complex psychological phenomena. It has been particularly influential in advancing regularized structural equation modeling and examining the intersection of measurement and machine learning in psychology. For an up-to-date citation count, see my [Google Scholar profile](https://scholar.google.com/citations?user=K7_cclwAAAAJ&hl=en).
 
 {% if author.googlescholar %}
   You can also find my articles on <u><a href="{{author.googlescholar}}">my Google Scholar profile</a>.</u>

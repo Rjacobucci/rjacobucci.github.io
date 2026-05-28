@@ -36,7 +36,6 @@ I'm a Research Assistant Professor at the University of Wisconsin-Madison, pione
 - Expert in translating complex computational methods for clinical practitioners
 
 ### 📊 By the Numbers
-- **2,668+** research citations
 - **70+** peer-reviewed publications
 - **Contributing researcher** in digital mental health studies
 - **Active grants** in suicide prevention and digital health
