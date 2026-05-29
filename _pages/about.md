@@ -1,48 +1,35 @@
 ---
 permalink: /
 title: "Ross Jacobucci"
-excerpt: "Machine Learning for Mental Health | Clinical Data Science | Research Innovation"
+excerpt: "Machine learning for clinical psychology and digital mental health"
 author_profile: true
-redirect_from: 
+redirect_from:
   - /about/
   - /about.html
 ---
 
-## Advancing Mental Health Through Machine Learning
+I am a Research Assistant Professor at the [Center for Healthy Minds](https://centerhealthyminds.org/) at the University of Wisconsin–Madison. My research applies machine learning and statistical methodology to clinical psychology, with a current focus on using passively-collected smartphone data to understand and predict suicide risk.
 
-I'm a Research Assistant Professor at the University of Wisconsin-Madison, pioneering the intersection of machine learning and clinical psychology. With cutting-edge research in digital phenotyping, I develop computational methods that transform how we understand and predict mental health crises.
+## Research Program
 
-### 🎯 Current Focus: Digital Mental Health Innovation
+**Digital phenotyping and suicide risk.** I lead a program of research that uses smartphone-based passive sensing — including high-resolution screenshots, keyboard input, and screen-time patterns — to study suicidal ideation and behavior as they unfold in daily life. Recent work includes studies in *JAMA Network Open* on nighttime smartphone use as a marker of next-day suicide risk, *npj Digital Medicine* on screen-time captured through screenshot data, and *JMIR Mental Health* using vision-language models to predict momentary suicidal ideation from on-device screenshots.
 
-**Leading Research:** I'm at the forefront of "screenomics" - using passive smartphone data to predict psychiatric hospitalization and suicide risk. My work bridges the critical gap between complex ML algorithms and practical clinical applications.
+**Ecological momentary assessment and intensive longitudinal data.** Much of my methodological work concerns the analysis of intensive longitudinal data collected from clinical populations — handling momentary missingness, zero inflation, continuous-time dynamics, and computerized adaptive testing for in-the-moment risk assessment.
 
-**Key Achievement:** Developed novel methods for analyzing real-time digital biomarkers from smartphone screenshots, advancing our ability to intervene before mental health crises occur.
+**Regularized structural equation modeling.** Beginning with the original *Regularized Structural Equation Modeling* paper (2016) and the `regsem` R package, I have contributed to a line of work extending regularization (lasso, elastic net, stability selection) to latent-variable models, and to understanding how measurement quality shapes the conclusions of machine learning applied to psychological data.
 
-### 💡 Research Impact Areas
+**Machine learning methodology in psychology.** A second methodological strand examines the reliability of machine learning claims in clinical psychology — including a frequently-cited commentary in *Clinical Psychological Science* on inflated prediction performance in suicide risk modeling, and a paper in *Perspectives on Psychological Science* on the often-overlooked role of measurement error in machine learning applications.
 
-**Digital Phenotyping & Risk Prediction**
-- Pioneering smartphone-based passive data collection for suicide risk assessment
-- Creating ML models that analyze ecological momentary assessments in real-time
-- Building custom foundation models for multimodal patient data
+## Book
 
-**Clinical Machine Learning Applications**
-- Natural language processing for clinical text analysis
-- Longitudinal subtype identification using advanced ML techniques
-- Integration of measurement error assessment into predictive models
+*[Machine Learning for Social and Behavioral Research](/book/)* (Guilford Press, 2023), with Kevin Grimm and Zhiyong Zhang — part of the *Methodology in the Social Sciences* series. A graduate-level text aimed at making modern ML methods accessible and rigorous for applied researchers.
 
-**Methodological Innovation**
-- Author of *Machine Learning for Social and Behavioral Research* (2023)
-- Developer of regularized structural equation modeling techniques
-- Expert in translating complex computational methods for clinical practitioners
+## Background
 
-### 📊 By the Numbers
-- **70+** peer-reviewed publications
-- **Contributing researcher** in digital mental health studies
-- **Active grants** in suicide prevention and digital health
+I joined the Center for Healthy Minds at the University of Wisconsin–Madison in 2024. From 2017 to 2024 I was Assistant Professor of Psychology at the University of Notre Dame. I received my PhD in Psychology from the University of Southern California in 2017.
 
-### 🤝 Let's Connect
+## Contact
 
-I'm passionate about collaborations that advance mental health through technology. Whether you're interested in research partnerships, consulting, or learning more about my work:
-
-**Email:** jacobucci@wisc.edu | rcjacobuc@gmail.com  
-**Full CV:** [Download PDF](https://github.com/Rjacobucci/CV/raw/master/rj_cv.pdf)
+Email: [jacobucci@wisc.edu](mailto:jacobucci@wisc.edu) · [rcjacobuc@gmail.com](mailto:rcjacobuc@gmail.com)  
+CV: [PDF on GitHub](https://github.com/Rjacobucci/CV/raw/master/rj_cv.pdf)  
+Code: [GitHub](https://github.com/Rjacobucci) · Publications: [Google Scholar](https://scholar.google.com/citations?user=K7_cclwAAAAJ&hl=en)
