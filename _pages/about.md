@@ -1,14 +1,35 @@
 ---
 permalink: /
 title: "Ross Jacobucci"
-excerpt: "Machine learning for clinical psychology and digital mental health"
+excerpt: "Research Assistant Professor at the Center for Healthy Minds, University of Wisconsin–Madison. Machine learning for clinical psychology, digital phenotyping, and statistical methodology."
 author_profile: true
 redirect_from:
   - /about/
   - /about.html
+header:
+  overlay_color: "#142a45"
+  overlay_filter: "0.0"
+  cta_label: "Download CV"
+  cta_url: "https://github.com/Rjacobucci/CV/raw/master/rj_cv.pdf"
 ---
 
-I am a Research Assistant Professor at the [Center for Healthy Minds](https://centerhealthyminds.org/) at the University of Wisconsin–Madison. My research applies machine learning and statistical methodology to clinical psychology, with a current focus on using passively-collected smartphone data to understand and predict suicide risk.
+<div class="research-grid">
+  <a class="research-card" href="/publications/#digital-phenotyping-and-suicide-risk">
+    <div class="research-card__tag">Digital phenotyping</div>
+    <h3>Smartphone-based suicide risk</h3>
+    <p>Passive sensing — screenshots, keyboard input, screen-time patterns — to study suicidal ideation and behavior as they unfold in daily life. Recent work in <em>JAMA Network Open</em>, <em>npj Digital Medicine</em>, and <em>JMIR Mental Health</em>.</p>
+  </a>
+  <a class="research-card" href="/publications/#machine-learning-and-methodology">
+    <div class="research-card__tag">Methodology</div>
+    <h3>ML in clinical psychology</h3>
+    <p>How measurement quality and analytic choices shape the reliability of machine learning applied to psychological data. Influential commentaries in <em>Clinical Psychological Science</em> and <em>Perspectives on Psychological Science</em>.</p>
+  </a>
+  <a class="research-card" href="/publications/#regularized-structural-equation-modeling">
+    <div class="research-card__tag">RegSEM</div>
+    <h3>Regularized structural equation modeling</h3>
+    <p>A decade of work extending regularization (lasso, elastic net, stability selection) to latent-variable models, beginning with the original 2016 paper and the <code>regsem</code> R package.</p>
+  </a>
+</div>
 
 ## Research Program
 
@@ -20,9 +41,7 @@ I am a Research Assistant Professor at the [Center for Healthy Minds](https://ce
 
 **Machine learning methodology in psychology.** A second methodological strand examines the reliability of machine learning claims in clinical psychology — including a frequently-cited commentary in *Clinical Psychological Science* on inflated prediction performance in suicide risk modeling, and a paper in *Perspectives on Psychological Science* on the often-overlooked role of measurement error in machine learning applications.
 
-## Book
-
-*[Machine Learning for Social and Behavioral Research](/book/)* (Guilford Press, 2023), with Kevin Grimm and Zhiyong Zhang — part of the *Methodology in the Social Sciences* series. A graduate-level text aimed at making modern ML methods accessible and rigorous for applied researchers.
+> **Book.** [*Machine Learning for Social and Behavioral Research*](/book/) (Guilford Press, 2023), with Kevin Grimm and Zhiyong Zhang — part of the *Methodology in the Social Sciences* series.
 
 ## Background
 
@@ -30,6 +49,9 @@ I joined the Center for Healthy Minds at the University of Wisconsin–Madison i
 
 ## Contact
 
-Email: [jacobucci@wisc.edu](mailto:jacobucci@wisc.edu) · [rcjacobuc@gmail.com](mailto:rcjacobuc@gmail.com)  
-CV: [PDF on GitHub](https://github.com/Rjacobucci/CV/raw/master/rj_cv.pdf)  
-Code: [GitHub](https://github.com/Rjacobucci) · Publications: [Google Scholar](https://scholar.google.com/citations?user=K7_cclwAAAAJ&hl=en)
+<div class="contact-row">
+  <a class="contact-pill contact-pill--primary" href="mailto:jacobucci@wisc.edu">jacobucci@wisc.edu</a>
+  <a class="contact-pill" href="https://github.com/Rjacobucci/CV/raw/master/rj_cv.pdf">Download CV</a>
+  <a class="contact-pill" href="https://scholar.google.com/citations?user=K7_cclwAAAAJ&hl=en">Google Scholar</a>
+  <a class="contact-pill" href="https://github.com/Rjacobucci">GitHub</a>
+</div>

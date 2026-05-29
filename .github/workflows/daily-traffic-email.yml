@@ -1,0 +1,40 @@
+name: Daily traffic email
+
+on:
+  schedule:
+    # 13:00 UTC daily = 8 AM Central Time (~7 AM during DST).
+    # Yesterday's data is settled by then.
+    - cron: '0 13 * * *'
+  workflow_dispatch:  # manual trigger from the Actions tab
+
+concurrency:
+  group: daily-traffic-email
+  cancel-in-progress: false
+
+jobs:
+  email:
+    runs-on: ubuntu-latest
+    # Don't email a red X if GoatCounter or Gmail is briefly unhappy.
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r scripts/requirements.txt
+
+      - name: Send daily traffic email
+        env:
+          GOATCOUNTER_CODE:      ${{ secrets.GOATCOUNTER_CODE }}
+          GOATCOUNTER_API_TOKEN: ${{ secrets.GOATCOUNTER_API_TOKEN }}
+          GMAIL_USER:            ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD:    ${{ secrets.GMAIL_APP_PASSWORD }}
+          DAILY_EMAIL_TO:        ${{ secrets.DAILY_EMAIL_TO }}
+        run: python scripts/daily_traffic_email.py
