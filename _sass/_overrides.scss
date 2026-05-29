@@ -322,6 +322,8 @@ a:visited { color: $o-navy-dark; }
   li {
     padding: 0.4em 0;
     color: $o-ink;
+    word-break: break-word;
+    overflow-wrap: anywhere;
     a {
       color: $o-ink;
       border-bottom: none;
