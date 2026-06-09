@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 """
-Pull yesterday's traffic from GoatCounter and email a one-line summary.
-Designed to be run by GitHub Actions on a daily schedule.
+Pull yesterday's traffic from GoatCounter and email a short summary.
+Run by GitHub Actions on a daily schedule (.github/workflows/daily-traffic-email.yml).
+
+Note: GoatCounter reports *visits* (sessions); it has no separate
+unique-visitor metric in /stats/total. See https://www.goatcounter.com/help/sessions
 
 Required env vars:
-  GOATCOUNTER_CODE        e.g. "jacobucci" (subdomain at *.goatcounter.com)
-  GOATCOUNTER_API_TOKEN   API token from GoatCounter (Settings -> API)
+  GOATCOUNTER_CODE        e.g. "rjacobucci" (subdomain at *.goatcounter.com)
+  GOATCOUNTER_API_TOKEN   GoatCounter API token (Settings -> API, "read statistics")
   GMAIL_USER              gmail address used to send (must have App Password)
   GMAIL_APP_PASSWORD      16-char Google App Password
   DAILY_EMAIL_TO          recipient address
@@ -27,45 +30,30 @@ def env(name: str) -> str:
     return val
 
 
-def fetch_yesterday(code: str, token: str) -> dict:
-    """Return dict with pageviews + visitors for yesterday (UTC)."""
-    yesterday = date.today() - timedelta(days=1)
-    start = yesterday.isoformat()
-    end = yesterday.isoformat()
-    url = f"https://{code}.goatcounter.com/api/v0/stats/total"
+def api_get(code: str, token: str, path: str, params: dict) -> dict:
     r = requests.get(
-        url,
-        params={"start": start, "end": end},
-        headers={"Authorization": f"Bearer {token}"},
+        f"https://{code}.goatcounter.com/api/v0/{path}",
+        params=params,
+        headers={"Authorization": f"Bearer {token}",
+                 "Content-Type": "application/json"},
         timeout=20,
     )
     r.raise_for_status()
-    data = r.json()
-    return {
-        "date": yesterday,
-        "pageviews": data.get("total", 0),
-        "visitors": data.get("total_unique", 0),
-    }
+    return r.json()
 
 
-def fetch_recent(code: str, token: str, days: int = 7) -> dict:
-    """Return dict with last-N-day totals for context."""
-    end = date.today() - timedelta(days=1)
-    start = end - timedelta(days=days - 1)
-    url = f"https://{code}.goatcounter.com/api/v0/stats/total"
-    r = requests.get(
-        url,
-        params={"start": start.isoformat(), "end": end.isoformat()},
-        headers={"Authorization": f"Bearer {token}"},
-        timeout=20,
-    )
-    r.raise_for_status()
-    data = r.json()
-    return {
-        "days": days,
-        "pageviews": data.get("total", 0),
-        "visitors": data.get("total_unique", 0),
-    }
+def visits(code: str, token: str, start: date, end: date) -> int:
+    """Total visits between start and end (inclusive)."""
+    data = api_get(code, token, "stats/total",
+                   {"start": start.isoformat(), "end": end.isoformat()})
+    return data.get("total", 0)
+
+
+def top_pages(code: str, token: str, start: date, end: date, n: int = 5) -> list:
+    """[(path, visits), ...] for the date range."""
+    data = api_get(code, token, "stats/hits",
+                   {"start": start.isoformat(), "end": end.isoformat(), "limit": n})
+    return [(h.get("path", "?"), h.get("count", 0)) for h in data.get("hits", [])]
 
 
 def send_email(user: str, pw: str, to: str, subject: str, body: str) -> None:
@@ -86,28 +74,33 @@ def main() -> int:
     pw    = env("GMAIL_APP_PASSWORD")
     to    = env("DAILY_EMAIL_TO")
 
+    yesterday = date.today() - timedelta(days=1)
+    week_ago  = yesterday - timedelta(days=6)
+
     try:
-        y = fetch_yesterday(code, token)
-        w = fetch_recent(code, token, 7)
+        v_day  = visits(code, token, yesterday, yesterday)
+        v_week = visits(code, token, week_ago, yesterday)
+        pages  = top_pages(code, token, yesterday, yesterday)
     except requests.RequestException as e:
-        body = f"GoatCounter API call failed: {e}\nGenerated at {datetime.now(timezone.utc).isoformat()}"
+        body = (f"GoatCounter API call failed: {e}\n"
+                f"Generated at {datetime.now(timezone.utc).isoformat()}")
         send_email(user, pw, to, "[rjacobucci.com] traffic report — API error", body)
         return 0  # don't fail the workflow
 
-    subject = f"[rjacobucci.com] {y['date']:%a %b %d}: {y['visitors']} visitors / {y['pageviews']} pageviews"
-    body = (
-        f"Traffic for {y['date']:%A, %B %d, %Y} (UTC):\n"
-        f"  Visitors:  {y['visitors']:>4}\n"
-        f"  Pageviews: {y['pageviews']:>4}\n"
-        f"\n"
-        f"Last 7 days:\n"
-        f"  Visitors:  {w['visitors']:>4}\n"
-        f"  Pageviews: {w['pageviews']:>4}\n"
-        f"\n"
-        f"Dashboard: https://{code}.goatcounter.com\n"
-        f"Generated: {datetime.now(timezone.utc).isoformat()}\n"
-    )
-    send_email(user, pw, to, subject, body)
+    subject = f"[rjacobucci.com] {yesterday:%a %b %d}: {v_day} visits"
+    lines = [
+        f"Traffic for {yesterday:%A, %B %d, %Y} (UTC):",
+        f"  Visits yesterday:  {v_day:>5}",
+        f"  Visits last 7 days:{v_week:>5}",
+        "",
+    ]
+    if pages:
+        lines.append("Top pages yesterday:")
+        lines += [f"  {count:>4}  {path}" for path, count in pages]
+        lines.append("")
+    lines += [f"Dashboard: https://{code}.goatcounter.com",
+              f"Generated: {datetime.now(timezone.utc).isoformat()}"]
+    send_email(user, pw, to, subject, "\n".join(lines))
     print(f"[ok] emailed to {to}: {subject}")
     return 0
 
