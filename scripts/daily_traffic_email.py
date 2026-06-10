@@ -20,6 +20,14 @@ from datetime import date, datetime, timedelta, timezone
 from email.message import EmailMessage
 
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
+SESSION = requests.Session()
+SESSION.mount("https://", HTTPAdapter(max_retries=Retry(
+    total=4, connect=4, read=4, backoff_factor=2,
+    status_forcelist=[429, 500, 502, 503, 504],
+    allowed_methods=["GET"])))
 
 
 def env(name: str) -> str:
@@ -31,7 +39,7 @@ def env(name: str) -> str:
 
 
 def api_get(code: str, token: str, path: str, params: dict) -> dict:
-    r = requests.get(
+    r = SESSION.get(
         f"https://{code}.goatcounter.com/api/v0/{path}",
         params=params,
         headers={"Authorization": f"Bearer {token}",
