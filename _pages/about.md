@@ -1,7 +1,7 @@
 ---
 permalink: /
 title: "Ross Jacobucci"
-excerpt: "Research Assistant Professor at the Center for Healthy Minds, University of Wisconsin–Madison. Machine learning for clinical psychology, digital phenotyping, and statistical methodology."
+excerpt: "Research Associate Professor at the Center for Healthy Minds, University of Wisconsin–Madison. Machine learning for clinical psychology, digital phenotyping, and statistical methodology."
 author_profile: true
 redirect_from:
   - /about/

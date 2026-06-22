@@ -10,7 +10,7 @@ redirect_from:
 {% include base_path %}
 
 ## Current Position
-**Research Assistant Professor**  
+**Research Associate Professor**  
 Center for Healthy Minds  
 University of Wisconsin-Madison
 
