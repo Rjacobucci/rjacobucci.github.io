@@ -6,10 +6,12 @@ Run by GitHub Actions on a daily schedule (.github/workflows/daily-traffic-email
 Note: GoatCounter reports *visits* (sessions); it has no separate
 unique-visitor metric in /stats/total. See https://www.goatcounter.com/help/sessions
 
-GoatCounter's stats endpoints expect start/end as date-times rounded to the hour,
-and treat the range as half-open [start, end). We therefore query a single day as
-[day 00:00Z, next-day 00:00Z) rather than start == end (a zero-width range, which
-can 404).
+Why one weekly call instead of a separate single-day call:
+GoatCounter's /stats/total returns HTTP 404 for some narrow single-day ranges
+(a server-side quirk), while a multi-day range works fine. The multi-day
+response already includes a per-day breakdown in `stats[]` ({day, daily}), so we
+make ONE weekly call and read yesterday's number out of that breakdown. This
+avoids the failing request entirely.
 
 Required env vars:
   GOATCOUNTER_CODE        e.g. "rjacobucci" (subdomain at *.goatcounter.com)
@@ -58,15 +60,19 @@ def api_get(code: str, token: str, path: str, params: dict) -> dict:
     )
     if not r.ok:  # surface the response body to make failures diagnosable
         raise requests.HTTPError(
-            f"{r.status_code} {r.reason} for {r.url}\n{r.text[:500]}", response=r)
+            f"{r.status_code} {r.reason} for {r.url}\n{r.text[:300]}", response=r)
     return r.json()
 
 
-def visits(code: str, token: str, start: date, end: date) -> int:
-    """Total visits over the half-open range [start 00:00Z, end 00:00Z)."""
+def totals(code: str, token: str, start: date, end: date):
+    """stats/total over [start 00:00Z, end 00:00Z).
+
+    Returns (range_total, {"YYYY-MM-DD": visits}) using the per-day breakdown.
+    """
     data = api_get(code, token, "stats/total",
                    {"start": iso_hour(start), "end": iso_hour(end)})
-    return data.get("total", 0)
+    per_day = {s.get("day"): s.get("daily", 0) for s in data.get("stats", [])}
+    return data.get("total", 0), per_day
 
 
 def top_pages(code: str, token: str, start: date, end: date, n: int = 5) -> list:
@@ -95,10 +101,9 @@ def main() -> int:
     to    = env("DAILY_EMAIL_TO")
 
     yesterday = date.today() - timedelta(days=1)
-    today     = date.today()              # exclusive end of "yesterday"
+    today     = date.today()              # exclusive end
     week_ago  = yesterday - timedelta(days=6)
 
-    # Fetch each metric independently so one bad call doesn't sink the report.
     errors = []
     def safe(fn, default):
         try:
@@ -107,22 +112,23 @@ def main() -> int:
             errors.append(str(e))
             return default
 
-    v_day  = safe(lambda: visits(code, token, yesterday, today), None)
-    v_week = safe(lambda: visits(code, token, week_ago, today), None)
-    pages  = safe(lambda: top_pages(code, token, yesterday, today), [])
+    res   = safe(lambda: totals(code, token, week_ago, today), None)
+    pages = safe(lambda: top_pages(code, token, yesterday, today), [])
 
-    if v_day is None and v_week is None:
-        body = ("GoatCounter API calls failed:\n" + "\n\n".join(errors) +
+    if res is None:
+        body = ("GoatCounter API call failed:\n" + "\n\n".join(errors) +
                 f"\n\nGenerated at {datetime.now(timezone.utc).isoformat()}")
         send_email(user, pw, to, "[rjacobucci.com] traffic report — API error", body)
         return 0  # don't fail the workflow
 
-    fmt = lambda v: "  n/a" if v is None else f"{v:>5}"
-    subject = f"[rjacobucci.com] {yesterday:%a %b %d}: {v_day if v_day is not None else '?'} visits"
+    v_week, per_day = res
+    v_day = per_day.get(yesterday.isoformat(), 0)
+
+    subject = f"[rjacobucci.com] {yesterday:%a %b %d}: {v_day} visits"
     lines = [
         f"Traffic for {yesterday:%A, %B %d, %Y} (UTC):",
-        f"  Visits yesterday:  {fmt(v_day)}",
-        f"  Visits last 7 days:{fmt(v_week)}",
+        f"  Visits yesterday:  {v_day:>5}",
+        f"  Visits last 7 days:{v_week:>5}",
         "",
     ]
     if pages:
@@ -130,7 +136,7 @@ def main() -> int:
         lines += [f"  {count:>4}  {path}" for path, count in pages]
         lines.append("")
     if errors:
-        lines += ["Note: some metrics could not be fetched:", *errors, ""]
+        lines += ["Note: top-pages could not be fetched:", *errors, ""]
     lines += [f"Dashboard: https://{code}.goatcounter.com",
               f"Generated: {datetime.now(timezone.utc).isoformat()}"]
     send_email(user, pw, to, subject, "\n".join(lines))
