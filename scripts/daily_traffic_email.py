@@ -55,7 +55,8 @@ def api_get(code: str, token: str, path: str, params: dict) -> dict:
     r = SESSION.get(
         f"https://{code}.goatcounter.com/api/v0/{path}",
         params=params,
-        headers={"Authorization": f"Bearer {token}"},
+        headers={"Authorization": f"Bearer {token}",
+                 "Content-Type": "application/json"},  # required by GoatCounter API
         timeout=20,
     )
     if not r.ok:  # surface the response body to make failures diagnosable
