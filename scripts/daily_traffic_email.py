@@ -7,11 +7,11 @@ Note: GoatCounter reports *visits* (sessions); it has no separate
 unique-visitor metric in /stats/total. See https://www.goatcounter.com/help/sessions
 
 Why one weekly call instead of a separate single-day call:
-GoatCounter's /stats/total returns HTTP 404 for some narrow single-day ranges
-(a server-side quirk), while a multi-day range works fine. The multi-day
-response already includes a per-day breakdown in `stats[]` ({day, daily}), so we
-make ONE weekly call and read yesterday's number out of that breakdown. This
-avoids the failing request entirely.
+GoatCounter's /stats/total can return HTTP 404 for empty or narrow single-day
+ranges. A multi-day response includes a per-day breakdown in `stats[]`
+({day, daily}), so we make one weekly call and read yesterday's number from it.
+If the entire week has no recorded visits, GoatCounter's "not found" response is
+normalized to zero visits.
 
 Required env vars:
   GOATCOUNTER_CODE        e.g. "rjacobucci" (subdomain at *.goatcounter.com)
@@ -70,8 +70,21 @@ def totals(code: str, token: str, start: date, end: date):
 
     Returns (range_total, {"YYYY-MM-DD": visits}) using the per-day breakdown.
     """
-    data = api_get(code, token, "stats/total",
-                   {"start": iso_hour(start), "end": iso_hour(end)})
+    try:
+        data = api_get(code, token, "stats/total",
+                       {"start": iso_hour(start), "end": iso_hour(end)})
+    except requests.HTTPError as error:
+        response = error.response
+        if response is None or response.status_code != 404:
+            raise
+        try:
+            api_error = response.json().get("error")
+        except (requests.JSONDecodeError, AttributeError):
+            raise error
+        if api_error != "not found":
+            raise
+        return 0, {}
+
     per_day = {s.get("day"): s.get("daily", 0) for s in data.get("stats", [])}
     return data.get("total", 0), per_day
 
