@@ -3,15 +3,14 @@
 Pull yesterday's traffic from GoatCounter and email a short summary.
 Run by GitHub Actions on a daily schedule (.github/workflows/daily-traffic-email.yml).
 
-Note: GoatCounter reports *visits* (sessions); it has no separate
-unique-visitor metric in /stats/total. See https://www.goatcounter.com/help/sessions
+Note: GoatCounter reports *visits*; it has no separate unique-visitor metric.
+See https://www.goatcounter.com/help/sessions
 
-Why one weekly call instead of a separate single-day call:
-GoatCounter's /stats/total can return HTTP 404 for empty or narrow single-day
-ranges. A multi-day response includes a per-day breakdown in `stats[]`
-({day, daily}), so we make one weekly call and read yesterday's number from it.
-If the entire week has no recorded visits, GoatCounter's "not found" response is
-normalized to zero visits.
+All report values come from /stats/hits. GoatCounter's /stats/total endpoint has
+returned misleading 404 responses even when /stats/hits contains traffic. Using
+one endpoint for totals and page rankings keeps the report internally
+consistent. Results are paginated so totals include more than the first 100
+paths if necessary.
 
 Required env vars:
   GOATCOUNTER_CODE        e.g. "rjacobucci" (subdomain at *.goatcounter.com)
@@ -65,35 +64,41 @@ def api_get(code: str, token: str, path: str, params: dict) -> dict:
     return r.json()
 
 
-def totals(code: str, token: str, start: date, end: date):
-    """stats/total over [start 00:00Z, end 00:00Z).
+def hit_summary(code: str, token: str, start: date, end: date,
+                top_n: int = 5) -> tuple[int, list]:
+    """Return (total visits, top pages) over the half-open range [start, end)."""
+    excluded_path_ids = []
+    hits = []
+    total = 0
 
-    Returns (range_total, {"YYYY-MM-DD": visits}) using the per-day breakdown.
-    """
-    try:
-        data = api_get(code, token, "stats/total",
-                       {"start": iso_hour(start), "end": iso_hour(end)})
-    except requests.HTTPError as error:
-        response = error.response
-        if response is None or response.status_code != 404:
-            raise
-        try:
-            api_error = response.json().get("error")
-        except (requests.JSONDecodeError, AttributeError):
-            raise error
-        if api_error != "not found":
-            raise
-        return 0, {}
+    while True:
+        params = {
+            "start": iso_hour(start),
+            "end": iso_hour(end),
+            "limit": 100,
+        }
+        if excluded_path_ids:
+            params["exclude_paths"] = ",".join(map(str, excluded_path_ids))
 
-    per_day = {s.get("day"): s.get("daily", 0) for s in data.get("stats", [])}
-    return data.get("total", 0), per_day
+        data = api_get(code, token, "stats/hits", params)
+        batch = data.get("hits", [])
+        hits.extend(batch)
+        total += data.get("total", sum(h.get("count", 0) for h in batch))
 
+        if not data.get("more", False):
+            break
 
-def top_pages(code: str, token: str, start: date, end: date, n: int = 5) -> list:
-    """[(path, visits), ...] over the half-open range [start, end)."""
-    data = api_get(code, token, "stats/hits",
-                   {"start": iso_hour(start), "end": iso_hour(end), "limit": n})
-    return [(h.get("path", "?"), h.get("count", 0)) for h in data.get("hits", [])]
+        batch_ids = [h.get("path_id") for h in batch if h.get("path_id")]
+        if not batch_ids:
+            raise requests.RequestException(
+                "GoatCounter pagination indicated more results but returned no path IDs")
+        excluded_path_ids.extend(batch_ids)
+
+    pages = sorted(
+        ((h.get("path", "?"), h.get("count", 0)) for h in hits),
+        key=lambda page: (-page[1], page[0]),
+    )[:top_n]
+    return total, pages
 
 
 def send_email(user: str, pw: str, to: str, subject: str, body: str) -> None:
@@ -126,17 +131,17 @@ def main() -> int:
             errors.append(str(e))
             return default
 
-    res   = safe(lambda: totals(code, token, week_ago, today), None)
-    pages = safe(lambda: top_pages(code, token, yesterday, today), [])
+    week = safe(lambda: hit_summary(code, token, week_ago, today, top_n=0), None)
+    day = safe(lambda: hit_summary(code, token, yesterday, today), None)
 
-    if res is None:
+    if week is None or day is None:
         body = ("GoatCounter API call failed:\n" + "\n\n".join(errors) +
                 f"\n\nGenerated at {datetime.now(timezone.utc).isoformat()}")
         send_email(user, pw, to, "[rjacobucci.com] traffic report — API error", body)
         return 0  # don't fail the workflow
 
-    v_week, per_day = res
-    v_day = per_day.get(yesterday.isoformat(), 0)
+    v_week, _ = week
+    v_day, pages = day
 
     subject = f"[rjacobucci.com] {yesterday:%a %b %d}: {v_day} visits"
     lines = [
@@ -149,8 +154,6 @@ def main() -> int:
         lines.append("Top pages yesterday:")
         lines += [f"  {count:>4}  {path}" for path, count in pages]
         lines.append("")
-    if errors:
-        lines += ["Note: top-pages could not be fetched:", *errors, ""]
     lines += [f"Dashboard: https://{code}.goatcounter.com",
               f"Generated: {datetime.now(timezone.utc).isoformat()}"]
     send_email(user, pw, to, subject, "\n".join(lines))
