@@ -10,10 +10,12 @@ locale                   : "en-US"
 title                    : "Ross Jacobucci"
 title_separator          : "-"
 name                     : &name "Ross Jacobucci"
-description              : &description "Leading researcher at the intersection of machine learning and mental health. Developing innovative digital phenotyping methods to predict and prevent mental health crises through smartphone data analysis."
+description              : &description "Machine learning scientist working on measurement, prediction, and adaptive interventions for mental health. I lead a $6.6M ARPA-H program (team of 20) and a lab that processes 7.4M+ smartphone screenshots, fine-tunes and evaluates vision-language models, runs randomized trials of digital interventions, and builds the evaluation tooling to decide what to deploy."
 url                      : https://rjacobucci.com # the base hostname & protocol for your site e.g. "https://mmistakes.github.io"
 baseurl                  : "" # the subpath of your site, e.g. "/blog"
 repository               : "rjacobucci/rjacobucci.github.io"
+resume_url               : "https://github.com/Rjacobucci/CV/raw/master/rj_resume.pdf"
+cv_url                   : "https://github.com/Rjacobucci/CV/raw/master/rj_cv.pdf"
 teaser                   :  # filename of teaser fallback teaser image placed in /images/, .e.g. "500x300.png"
 breadcrumbs              : false # true, false (default)
 words_per_minute         : 160
@@ -57,7 +59,7 @@ yandex_site_verification :
 
 # Social Sharing
 twitter:
-  username               : &twitter "rossjacobucci"
+  username               :
 facebook:
   username               :
   app_id                 :
@@ -66,9 +68,12 @@ og_image                 : "headshot_2025.jpeg" # Open Graph/Twitter default sit
 # For specifying social profiles
 # - https://developers.google.com/structured-data/customize/social-profiles
 social:
-  type                   : # Person or Organization (defaults to Person)
+  type                   : Person
   name                   : # If the user or organization name differs from the site's name
-  links: # An array of links to social media profiles
+  links:
+    - "https://www.linkedin.com/in/ross-jacobucci-7018b05b/"
+    - "https://github.com/Rjacobucci"
+    - "https://scholar.google.com/citations?user=K7_cclwAAAAJ&hl=en"
 
 
 # Analytics
@@ -84,12 +89,12 @@ analytics:
 author:
   name             : "Ross Jacobucci"
   avatar           : "headshot_2025.jpeg"
-  bio              : "Pioneering ML for mental health | Author of 'Machine Learning for Social & Behavioral Research' | Digital phenotyping expert"
+  bio              : "ML for mental health · LLM evaluation · experiments and adaptive interventions · quantitative psychologist."
   location         : "Madison, WI"
   employer         : "UW–Madison"
   pubmed           : 
   googlescholar    : "https://scholar.google.com/citations?user=K7_cclwAAAAJ&hl=en"
-  email            : "jacobucci@wisc.edu"
+  email            : "rcjacobuc@gmail.com"
   researchgate     : "https://www.researchgate.net/profile/Ross_Jacobucci3"
   uri              :
   bitbucket        :
@@ -104,14 +109,14 @@ author:
   instagram        :
   impactstory      : 
   lastfm           :
-  linkedin         : "ross-jacobucci"
+  linkedin         : "ross-jacobucci-7018b05b"
   orcid            : 
   pinterest        :
   soundcloud       :
   stackoverflow    : 
   steam            :
   tumblr           :
-  twitter          : "rossjacobucci"
+  twitter          :
   vine             :
   weibo            :
   xing             :

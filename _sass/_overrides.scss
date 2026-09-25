@@ -156,6 +156,15 @@ a:visited { color: $o-navy-dark; }
     letter-spacing: -0.025em;
     &::after { display: none; }
   }
+  .page__eyebrow {
+    margin: 0 0 1em;
+    color: $o-copper-soft;
+    font-family: $sans-serif;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
   .page__lead {
     color: rgba($o-cream, 0.92);
     font-family: $serif;
@@ -168,9 +177,9 @@ a:visited { color: $o-navy-dark; }
   .btn--light-outline,
   .btn {
     display: inline-block;
-    background: $o-copper;
+    background: $o-copper-dk;
     color: $o-paper;
-    border: 2px solid $o-copper;
+    border: 2px solid $o-copper-dk !important; /* override the base theme's button reset */
     padding: 0.7em 1.6em;
     font-weight: 600;
     font-size: 0.95rem;
@@ -179,18 +188,81 @@ a:visited { color: $o-navy-dark; }
     letter-spacing: 0;
     box-shadow: 0 4px 12px rgba(196, 106, 58, 0.25);
     &:hover {
-      background: $o-copper-dk;
-      border-color: $o-copper-dk;
+      background: darken($o-copper-dk, 7%);
+      border-color: darken($o-copper-dk, 7%) !important;
       color: $o-paper;
       transform: translateY(-1px);
     }
   }
+  .btn--secondary {
+    background: transparent;
+    border-color: rgba($o-cream, 0.65) !important;
+    box-shadow: none;
+    &:hover {
+      background: rgba($o-paper, 0.1);
+      border-color: $o-paper !important;
+    }
+  }
+  .document-format { font-weight: 400; }
+}
+
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8em;
+  .btn { margin: 0; }
+}
+
+/* --- project evidence and case studies --- */
+.work-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  margin: 0 0 2.5em;
+  background: $o-border;
+  border: 1px solid $o-border;
+  border-radius: 6px;
+  overflow: hidden;
+  > div { padding: 1.1em 1.3em; background: $o-paper; }
+  dt {
+    margin: 0 0 0.15em;
+    color: $o-navy-dark;
+    font-size: 1.65rem;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+  dd { margin: 0; font-size: 0.82rem; color: $o-ink-soft; }
+}
+.work-index {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6em 1.2em;
+  margin: 1.6em 0 2em;
+  padding: 1em 0;
+  border-top: 1px solid $o-border;
+  border-bottom: 1px solid $o-border;
+  font-size: 0.9rem;
+  a { font-weight: 600; }
+}
+.page__content .project-meta {
+  padding: 0.8em 1em;
+  border-left: 3px solid $o-copper;
+  background: $o-copper-soft;
+  color: $o-navy-dark;
+  font-size: 0.88rem;
+  font-weight: 500;
+}
+.page__content h2[id] { scroll-margin-top: 1.5em; }
+.page__content .research-card,
+.page__content .contact-pill {
+  text-decoration: none;
+  &:hover { text-decoration: none; }
 }
 
 /* --- research card grid --- */
 .research-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1.2em;
   margin: 0 0 3em;
   padding: 0;
@@ -214,6 +286,7 @@ a:visited { color: $o-navy-dark; }
   }
   &:nth-child(2) { border-top-color: $o-navy; &:hover { border-top-color: $o-navy-dark; } }
   &:nth-child(3) { border-top-color: darken($o-copper, 12%); }
+  &:nth-child(4) { border-top-color: $o-navy; }
 
   h3 {
     font-family: $serif;
@@ -321,6 +394,7 @@ a:visited { color: $o-navy-dark; }
   margin-top: 1em;
   li {
     padding: 0.4em 0;
+    white-space: normal;
     color: $o-ink;
     word-break: break-word;
     overflow-wrap: anywhere;
@@ -433,6 +507,42 @@ button:focus-visible {
   color: $o-ink-soft;
 }
 
+/* Keep profile links usable without a hover menu on smaller screens. */
+@media (max-width: 924px) {
+  .sidebar.sticky { padding: 1.2em; }
+  .author__avatar {
+    display: block;
+    float: left;
+    width: 72px;
+    margin: 0.2em 1em 0.8em 0;
+    img { max-width: 72px; }
+  }
+  .author__content {
+    display: block;
+    padding: 0;
+    .author__name { margin-top: 0; }
+  }
+  .author__urls-wrapper {
+    clear: both;
+    display: block;
+    cursor: default;
+  }
+  .author__urls {
+    display: flex !important;
+    flex-wrap: wrap;
+    gap: 0.3em 1em;
+    position: static;
+    margin: 1em 0 0;
+    padding: 0.7em 0 0;
+    border: 0;
+    border-top: 1px solid $o-border;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    &::before, &::after { display: none; }
+  }
+}
+
 /* --- responsive: tighten hero on small screens --- */
 @media (max-width: 600px) {
   .page__hero--overlay {
@@ -441,7 +551,12 @@ button:focus-visible {
     .page__lead  { font-size: 1.05rem; }
     .wrapper     { padding: 0 1.2em; }
   }
-  .research-grid { gap: 0.9em; }
+  .research-grid { grid-template-columns: minmax(0, 1fr); gap: 0.9em; }
   .research-card { padding: 1.2em; }
   h2 { font-size: 1.4rem; }
+}
+
+@media (max-width: 380px) {
+  .work-metrics { grid-template-columns: minmax(0, 1fr); }
+  .hero-actions .btn { width: 100%; text-align: center; }
 }

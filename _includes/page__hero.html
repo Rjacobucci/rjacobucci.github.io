@@ -29,6 +29,9 @@
 >
   {% if page.header.overlay_color or page.header.overlay_image %}
     <div class="wrapper">
+      {% if page.header.eyebrow %}
+        <p class="page__eyebrow">{{ page.header.eyebrow | escape }}</p>
+      {% endif %}
       <h1 class="page__title" itemprop="headline">
         {% if paginator %}
           {{ site.title }}{% unless paginator.page == 1 %} {{ site.data.ui-text[site.locale].page | default: "Page" }} {{ paginator.page }}{% endunless %}
@@ -42,8 +45,16 @@
       {% if site.read_time and page.read_time %}
         <p class="page__meta"><i class="fa fa-clock-o" aria-hidden="true"></i> {% include read-time.html %}</p>
       {% endif %}
-      {% if page.header.cta_url %}
-        <p><a href="{{ cta_path }}" class="btn btn--light-outline btn--large">{{ page.header.cta_label | default: site.data.ui-text[site.locale].more_label | default: "Learn More" }}</a></p>
+      {% if page.header.cta_url or page.header.downloads %}
+        <div class="hero-actions">
+          {% if page.header.cta_url %}
+            <a href="{{ cta_path }}" class="btn btn--light-outline btn--large">{{ page.header.cta_label | default: site.data.ui-text[site.locale].more_label | default: "Learn More" }}</a>
+          {% endif %}
+          {% if page.header.downloads %}
+            <a href="{{ site.resume_url }}" class="btn btn--secondary">Download resume <span class="document-format">(PDF)</span></a>
+            <a href="{{ site.cv_url }}" class="btn btn--secondary">Download CV <span class="document-format">(PDF)</span></a>
+          {% endif %}
+        </div>
       {% endif %}
     </div>
   {% else %}

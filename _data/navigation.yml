@@ -1,10 +1,13 @@
 # main links links
 main:
-  - title: "Book"
-    url: /book/
+  - title: "Work"
+    url: /work/
 
   - title: "Publications"
     url: /publications/
+
+  - title: "Book"
+    url: /book/
     
-  - title: "CV"
+  - title: "Resume & CV"
     url: /cv/

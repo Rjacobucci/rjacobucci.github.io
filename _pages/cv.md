@@ -1,31 +1,41 @@
 ---
 layout: archive
-title: "CV"
+title: "Resume & CV"
+excerpt: "Download Ross Jacobucci's industry resume or full academic CV: digital health, machine learning, model evaluation, and adaptive interventions."
 permalink: /cv/
 author_profile: true
 redirect_from:
   - /resume
+  - /resume/
 ---
 
 {% include base_path %}
+
+My resume summarizes applied machine learning, experimentation, technical leadership, and research software. The academic CV includes the full publication, funding, and teaching record.
+
+<div class="contact-row">
+  <a class="contact-pill contact-pill--primary" href="{{ site.resume_url }}">Download resume (PDF)</a>
+  <a class="contact-pill" href="{{ site.cv_url }}">Download CV (PDF)</a>
+</div>
+
+For project scope, tools, and outcomes, see [selected work](/work/).
 
 ## Current Position
 **Research Associate Professor**  
 Center for Healthy Minds  
 University of Wisconsin-Madison
 
-## Research Interests
-* Clinical methodology and machine learning applications in psychological research
-* Suicide risk factors and detection using computational methods
-* Natural language processing and large language models for clinical applications
-* Smartphone usage pattern analysis and ecological momentary assessments
-* Multimodal patient data processing and custom foundation model development
-* Digital communication analysis for personalized intervention systems
+## Areas of Work
+* Digital health measurement and risk prediction from smartphone, wearable, and longitudinal data
+* Vision-language model fine-tuning, inference, and evaluation
+* Randomized experiments, causal inference, and adaptive interventions
+* Reproducible modeling tools, psychometrics, and regularized structural equation modeling
 
 ## Contact Information
-* **Email:** jacobucci@wisc.edu or rcjacobuc@gmail.com
+* **Email:** [rcjacobuc@gmail.com](mailto:rcjacobuc@gmail.com)
+* **LinkedIn:** [Ross Jacobucci](https://www.linkedin.com/in/ross-jacobucci-7018b05b/)
 * **Location:** Madison, WI
 
 ---
 
-For a complete and up-to-date CV, please [download the PDF](https://github.com/Rjacobucci/CV/raw/master/rj_cv.pdf).
+University correspondence: [jacobucci@wisc.edu](mailto:jacobucci@wisc.edu).

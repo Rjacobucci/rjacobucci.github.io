@@ -1,7 +1,8 @@
 ---
 permalink: /
 title: "Ross Jacobucci"
-excerpt: "Research Associate Professor at the Center for Healthy Minds, University of Wisconsin–Madison. Machine learning for clinical psychology, digital phenotyping, and statistical methodology."
+seo_title: "Ross Jacobucci — Digital Health & Machine Learning"
+excerpt: "Machine learning scientist working on measurement, prediction, and adaptive interventions for mental health. I lead a $6.6M ARPA-H program (team of 20) and a lab that processes 7.4M+ smartphone screenshots, fine-tunes and evaluates vision-language models, runs randomized trials of digital interventions, and builds the evaluation tooling to decide what to deploy."
 author_profile: true
 redirect_from:
   - /about/
@@ -9,15 +10,31 @@ redirect_from:
 header:
   overlay_color: "#142a45"
   overlay_filter: "0.0"
-  cta_label: "Download CV"
-  cta_url: "https://github.com/Rjacobucci/CV/raw/master/rj_cv.pdf"
+  eyebrow: "Digital health · Data science · Research"
+  cta_label: "Explore my work"
+  cta_url: /work/
+  downloads: true
 ---
 
+<dl class="work-metrics" aria-label="Selected work at a glance">
+  <div><dt>$6.6M</dt><dd>ARPA-H program · team of 20</dd></div>
+  <div><dt>7.4M+</dt><dd>Smartphone screenshots processed</dd></div>
+  <div><dt>15 GPUs</dt><dd>Fine-tuning &amp; inference infrastructure</dd></div>
+  <div><dt>10,000+</dt><dd>Person-days in a micro-randomized trial</dd></div>
+</dl>
+
+## Selected Work
+
 <div class="research-grid">
-  <a class="research-card" href="/publications/#digital-phenotyping-and-suicide-risk">
-    <div class="research-card__tag">Digital phenotyping</div>
-    <h3>Smartphone-based suicide risk</h3>
-    <p>Passive sensing — screenshots, keyboard input, screen-time patterns — to study suicidal ideation and behavior as they unfold in daily life. Recent work in <em>JAMA Network Open</em>, <em>npj Digital Medicine</em>, and <em>JMIR Mental Health</em>.</p>
+  <a class="research-card" href="/work/#screenshot-models">
+    <div class="research-card__tag">Applied ML &amp; evaluation</div>
+    <h3>From screenshots to risk signals</h3>
+    <p>OCR and vision-language classification across 7.4M+ screenshots, with Qwen fine-tuning, user-grouped validation, and held-out evaluation in a restricted data environment.</p>
+  </a>
+  <a class="research-card" href="/work/#adaptive-interventions">
+    <div class="research-card__tag">Experiments &amp; personalization</div>
+    <h3>When and for whom to intervene</h3>
+    <p>Factorial experiments and a 380-person micro-randomized trial. Causal analyses translated into deployment rules for message timing and targeting.</p>
   </a>
   <a class="research-card" href="/publications/#machine-learning-and-methodology">
     <div class="research-card__tag">Methodology</div>
@@ -33,7 +50,11 @@ header:
 
 ## Research Program
 
-**Digital phenotyping and suicide risk.** I lead a program of research that uses smartphone-based passive sensing — including high-resolution screenshots, keyboard input, and screen-time patterns — to study suicidal ideation and behavior as they unfold in daily life. Recent work includes studies in *JAMA Network Open* on nighttime smartphone use as a marker of next-day suicide risk, *npj Digital Medicine* on screen-time captured through screenshot data, and *JMIR Mental Health* using vision-language models to predict momentary suicidal ideation from on-device screenshots.
+**Digital phenotyping and suicide risk.** I build models that turn passively collected smartphone and wearable data into measures of mental health and near-term risk. My lab has processed 7.4M+ screenshots and built a 15-GPU fine-tuning and inference stack using PyTorch, Hugging Face PEFT, Unsloth, vLLM, and SGLang. This work includes studies in *JAMA Network Open*, *npj Digital Medicine*, and *JMIR Mental Health*. [Projects, tools, and outputs →](/work/#screenshot-models)
+
+**Experiments and adaptive interventions.** I led causal and personalization analyses of two factorial-trial cohorts (about 760 participants each) and a nested 380-person micro-randomized trial, delivering deployment rules for message timing and targeting. I also designed a Phase 2 bandit-driven just-in-time adaptive intervention (JITAI) and its simulation study. [Experiment details →](/work/#adaptive-interventions)
+
+**Multimodal measurement at scale.** As PI of the $6.6M ARPA-H EVIDENT award, I lead a team of 20 and designed the protocol and measurement stack for a 1,500-person randomized trial and a 300-person observational cohort. The program combines wearable, smartphone, video, and momentary-assessment data, with vendor selection, data-security review, and participant safety built into the study design. [Program scope →](/work/#multimodal-program)
 
 **Ecological momentary assessment and intensive longitudinal data.** Much of my methodological work concerns the analysis of intensive longitudinal data collected from clinical populations — handling momentary missingness, zero inflation, continuous-time dynamics, and computerized adaptive testing for in-the-moment risk assessment.
 
@@ -50,8 +71,12 @@ I joined the Center for Healthy Minds at the University of Wisconsin–Madison i
 ## Contact
 
 <div class="contact-row">
-  <a class="contact-pill contact-pill--primary" href="mailto:jacobucci@wisc.edu">jacobucci@wisc.edu</a>
-  <a class="contact-pill" href="https://github.com/Rjacobucci/CV/raw/master/rj_cv.pdf">Download CV</a>
+  <a class="contact-pill contact-pill--primary" href="mailto:rcjacobuc@gmail.com">rcjacobuc@gmail.com</a>
+  <a class="contact-pill" href="https://www.linkedin.com/in/ross-jacobucci-7018b05b/">LinkedIn</a>
+  <a class="contact-pill" href="{{ site.resume_url }}">Download resume (PDF)</a>
+  <a class="contact-pill" href="{{ site.cv_url }}">Download CV (PDF)</a>
   <a class="contact-pill" href="https://scholar.google.com/citations?user=K7_cclwAAAAJ&hl=en">Google Scholar</a>
   <a class="contact-pill" href="https://github.com/Rjacobucci">GitHub</a>
 </div>
+
+For university correspondence: [jacobucci@wisc.edu](mailto:jacobucci@wisc.edu).
