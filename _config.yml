@@ -10,7 +10,7 @@ locale                   : "en-US"
 title                    : "Ross Jacobucci"
 title_separator          : "-"
 name                     : &name "Ross Jacobucci"
-description              : &description "Machine learning scientist working on measurement, prediction, and adaptive interventions for mental health. I lead a $6.6M ARPA-H program (team of 20) and a lab that processes 7.4M+ smartphone screenshots, fine-tunes and evaluates vision-language models, runs randomized trials of digital interventions, and builds the evaluation tooling to decide what to deploy."
+description              : &description "Ross Jacobucci is a quantitative psychologist and machine learning scientist developing methods to measure clinical change, predict risk, and personalize interventions in digital mental health."
 url                      : https://rjacobucci.com # the base hostname & protocol for your site e.g. "https://mmistakes.github.io"
 baseurl                  : "" # the subpath of your site, e.g. "/blog"
 repository               : "rjacobucci/rjacobucci.github.io"
@@ -89,7 +89,7 @@ analytics:
 author:
   name             : "Ross Jacobucci"
   avatar           : "headshot_2025.jpeg"
-  bio              : "ML for mental health · LLM evaluation · experiments and adaptive interventions · quantitative psychologist."
+  bio              : "Quantitative psychologist & machine learning scientist · Digital mental health · Measurement & adaptive interventions."
   location         : "Madison, WI"
   employer         : "UW–Madison"
   pubmed           : 

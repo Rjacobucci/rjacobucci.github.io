@@ -1,0 +1,13 @@
+{% include base_path %}
+<div class="profile-strip">
+  <img src="{{ base_path }}/images/{{ site.author.avatar }}" alt="Ross Jacobucci" width="64" height="64">
+  <div class="profile-strip__identity">
+    <a href="{{ base_path }}/">{{ site.author.name }}</a>
+    <p>Quantitative psychology · Machine learning · Digital mental health</p>
+  </div>
+  <div class="profile-strip__links">
+    <a href="mailto:{{ site.author.email }}">Email</a>
+    <a href="https://www.linkedin.com/in/{{ site.author.linkedin }}/">LinkedIn</a>
+    <a href="{{ site.resume_url }}">Resume (PDF)</a>
+  </div>
+</div>

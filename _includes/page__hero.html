@@ -24,11 +24,15 @@
   {% capture overlay_filter %}rgba(0, 0, 0, {{ page.header.overlay_filter }}){% endcapture %}
 {% endif %}
 
-<div class="page__hero{% if page.header.overlay_color or page.header.overlay_image %}--overlay{% endif %}"
+<div class="page__hero{% if page.header.overlay_color or page.header.overlay_image %}--overlay{% endif %}{% if page.header.portrait %} page__hero--profile{% endif %}"
   style="{% if page.header.overlay_color %}background-color: {{ page.header.overlay_color | default: 'transparent' }};{% endif %} {% if overlay_img_path %}background-image: {% if overlay_filter %}linear-gradient({{ overlay_filter }}, {{ overlay_filter }}), {% endif %}url('{{ overlay_img_path }}');{% endif %}"
 >
   {% if page.header.overlay_color or page.header.overlay_image %}
     <div class="wrapper">
+      {% if page.header.portrait %}
+        <img class="hero-portrait" src="{{ base_path }}/images/{{ site.author.avatar }}" alt="Ross Jacobucci" width="160" height="160">
+      {% endif %}
+      <div class="hero-intro">
       {% if page.header.eyebrow %}
         <p class="page__eyebrow">{{ page.header.eyebrow | escape }}</p>
       {% endif %}
@@ -41,6 +45,13 @@
       </h1>
       {% if page.excerpt %}
         <p class="page__lead">{{ page.excerpt | markdownify | remove: "<p>" | remove: "</p>" }}</p>
+      {% endif %}
+      {% if page.header.credentials %}
+        <ul class="hero-credentials" aria-label="Research record">
+          {% for credential in page.header.credentials %}
+            <li><a href="{{ credential.url | prepend: base_path }}">{{ credential.label | escape }}</a></li>
+          {% endfor %}
+        </ul>
       {% endif %}
       {% if site.read_time and page.read_time %}
         <p class="page__meta"><i class="fa fa-clock-o" aria-hidden="true"></i> {% include read-time.html %}</p>
@@ -56,6 +67,13 @@
           {% endif %}
         </div>
       {% endif %}
+      {% if page.header.contact_links %}
+        <div class="hero-contact">
+          <a href="mailto:{{ site.author.email }}">{{ site.author.email }}</a>
+          <a href="https://www.linkedin.com/in/{{ site.author.linkedin }}/">LinkedIn</a>
+        </div>
+      {% endif %}
+      </div>
     </div>
   {% else %}
     <img src="{{ img_path }}" alt="{{ page.title }}" class="page__hero-image">

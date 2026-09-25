@@ -1,7 +1,7 @@
 ---
 layout: archive
 title: "Resume & CV"
-excerpt: "Download Ross Jacobucci's industry resume or full academic CV: digital health, machine learning, model evaluation, and adaptive interventions."
+excerpt: "Download Ross Jacobucci's industry resume or full academic CV: digital mental health, clinical measurement, experimentation, and machine learning."
 permalink: /cv/
 author_profile: true
 redirect_from:
@@ -26,10 +26,10 @@ Center for Healthy Minds
 University of Wisconsin-Madison
 
 ## Areas of Work
-* Digital health measurement and risk prediction from smartphone, wearable, and longitudinal data
-* Vision-language model fine-tuning, inference, and evaluation
+* Clinical measurement and risk prediction from smartphone, wearable, and longitudinal data
 * Randomized experiments, causal inference, and adaptive interventions
-* Reproducible modeling tools, psychometrics, and regularized structural equation modeling
+* Psychometrics, reliable model evaluation, and open-source statistical software
+* Applied machine learning, including vision-language model fine-tuning and inference
 
 ## Contact Information
 * **Email:** [rcjacobuc@gmail.com](mailto:rcjacobuc@gmail.com)
