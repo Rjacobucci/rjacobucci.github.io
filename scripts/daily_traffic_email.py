@@ -6,9 +6,10 @@ Run by GitHub Actions on a daily schedule (.github/workflows/daily-traffic-email
 Note: GoatCounter reports *visits*; it has no separate unique-visitor metric.
 See https://www.goatcounter.com/help/sessions
 
-All report values come from /stats/hits. GoatCounter's /stats/total endpoint has
-returned misleading 404 responses even when /stats/hits contains traffic. Using
-one endpoint for totals and page rankings keeps the report internally
+All report values come from one-day /stats/hits queries. GoatCounter has
+returned misleading 404 responses for both /stats/total and multi-day
+/stats/hits queries even when a one-day /stats/hits query contains traffic.
+Summing seven known-working daily queries keeps the report internally
 consistent. Results are paginated so totals include more than the first 100
 paths if necessary.
 
@@ -24,6 +25,7 @@ import smtplib
 import sys
 from datetime import date, datetime, timedelta, timezone
 from email.message import EmailMessage
+from time import sleep
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -101,6 +103,32 @@ def hit_summary(code: str, token: str, start: date, end: date,
     return total, pages
 
 
+def seven_day_summary(code: str, token: str, start: date, end: date,
+                      pause_seconds: float = 0.3) -> tuple[int, int, list]:
+    """Return (period total, final-day total, final-day top pages).
+
+    GoatCounter's hosted API can return 404 for a multi-day range even though
+    each day in that range is available, so fetch and sum one day at a time.
+    """
+    period_total = 0
+    final_day_total = 0
+    final_day_pages = []
+    current = start
+
+    while current < end:
+        next_day = current + timedelta(days=1)
+        day_total, pages = hit_summary(code, token, current, next_day)
+        period_total += day_total
+        final_day_total = day_total
+        final_day_pages = pages
+        current = next_day
+
+        if current < end and pause_seconds:
+            sleep(pause_seconds)
+
+    return period_total, final_day_total, final_day_pages
+
+
 def send_email(user: str, pw: str, to: str, subject: str, body: str) -> None:
     msg = EmailMessage()
     msg["Subject"] = subject
@@ -131,17 +159,15 @@ def main() -> int:
             errors.append(str(e))
             return default
 
-    week = safe(lambda: hit_summary(code, token, week_ago, today, top_n=0), None)
-    day = safe(lambda: hit_summary(code, token, yesterday, today), None)
+    summary = safe(lambda: seven_day_summary(code, token, week_ago, today), None)
 
-    if week is None or day is None:
+    if summary is None:
         body = ("GoatCounter API call failed:\n" + "\n\n".join(errors) +
                 f"\n\nGenerated at {datetime.now(timezone.utc).isoformat()}")
         send_email(user, pw, to, "[rjacobucci.com] traffic report — API error", body)
         return 0  # don't fail the workflow
 
-    v_week, _ = week
-    v_day, pages = day
+    v_week, v_day, pages = summary
 
     subject = f"[rjacobucci.com] {yesterday:%a %b %d}: {v_day} visits"
     lines = [

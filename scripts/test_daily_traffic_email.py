@@ -67,5 +67,31 @@ class HitSummaryTests(unittest.TestCase):
         self.assertEqual([], pages)
 
 
+class SevenDaySummaryTests(unittest.TestCase):
+    def test_sums_daily_queries_and_reuses_final_day_for_top_pages(self):
+        start = date(2026, 9, 18)
+        end = date(2026, 9, 25)
+        daily_results = [
+            (1, [("/day-1", 1)]),
+            (2, [("/day-2", 2)]),
+            (3, [("/day-3", 3)]),
+            (4, [("/day-4", 4)]),
+            (5, [("/day-5", 5)]),
+            (6, [("/day-6", 6)]),
+            (3, [("/", 2), ("/publications", 1)]),
+        ]
+
+        with patch.object(report, "hit_summary", side_effect=daily_results) as hits:
+            period, final_day, pages = report.seven_day_summary(
+                "rjacobucci", "token", start, end, pause_seconds=0)
+
+        self.assertEqual(24, period)
+        self.assertEqual(3, final_day)
+        self.assertEqual([("/", 2), ("/publications", 1)], pages)
+        self.assertEqual(7, hits.call_count)
+        self.assertEqual(start, hits.call_args_list[0].args[2])
+        self.assertEqual(end, hits.call_args_list[-1].args[3])
+
+
 if __name__ == "__main__":
     unittest.main()
