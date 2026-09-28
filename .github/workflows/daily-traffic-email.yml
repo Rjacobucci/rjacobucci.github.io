@@ -2,7 +2,7 @@ name: Daily traffic email
 
 on:
   schedule:
-    # 13:00 UTC daily = 8 AM Central Time (~7 AM during DST).
+    # 13:00 UTC daily = 8 AM Central during DST, 7 AM in standard time.
     # Yesterday's data is settled by then.
     - cron: '0 13 * * *'
   workflow_dispatch:  # manual trigger from the Actions tab
@@ -14,8 +14,7 @@ concurrency:
 jobs:
   email:
     runs-on: ubuntu-latest
-    # Don't email a red X if GoatCounter or Gmail is briefly unhappy.
-    continue-on-error: true
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,6 +28,9 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r scripts/requirements.txt
+
+      - name: Test traffic report
+        run: python -m unittest scripts.test_daily_traffic_email
 
       - name: Send daily traffic email
         env:
