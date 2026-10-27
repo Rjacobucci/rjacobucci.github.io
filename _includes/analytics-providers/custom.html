@@ -1,5 +1,18 @@
 <!-- start custom analytics snippet -->
 {% if site.analytics.goatcounter.code %}
+{% if page.url == '/404.html' %}
+<script>
+  // Override the shared /404.html canonical URL with the requested path.
+  // Omit query strings and fragments, which may contain private information.
+  window.goatcounter = window.goatcounter || {};
+  window.goatcounter.path = function () {
+    return '404: ' + window.location.pathname;
+  };
+  window.goatcounter.title = 'Page not found';
+  // Treat the label as an event so the dashboard won't link to a fake URL.
+  window.goatcounter.event = true;
+</script>
+{% endif %}
 <script data-goatcounter="https://{{ site.analytics.goatcounter.code }}.goatcounter.com/count"
         async src="https://gc.zgo.at/count.js"></script>
 {% endif %}
