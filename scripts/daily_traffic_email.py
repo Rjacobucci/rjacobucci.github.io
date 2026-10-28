@@ -112,32 +112,63 @@ def valid_count(value) -> bool:
 
 def find_session_path_id(code: str, token: str) -> int | None:
     """Find the shared event, distinguishing not-yet-installed from zero visits."""
-    after = 0
-    while True:
-        data = api_get(code, token, "paths", {"limit": 200, "after": after})
-        if "paths" not in data or type(data.get("more")) is not bool:
-            raise requests.RequestException("GoatCounter returned an invalid path list")
-        paths = data["paths"]
-        if paths is None:
-            paths = []
-        if not isinstance(paths, list):
-            raise requests.RequestException("GoatCounter returned an invalid path list")
-        previous = after
-        for path in paths:
-            if (not isinstance(path, dict) or type(path.get("id")) is not int
-                    or path["id"] <= previous or not isinstance(path.get("path"), str)):
-                raise requests.RequestException("GoatCounter returned invalid path pagination")
-            previous = path["id"]
-            if path["path"] == SITEWIDE_SESSION_EVENT:
-                if path.get("event") is not True:
-                    raise requests.RequestException("The site-wide session counter is not an event")
-                return path["id"]
-        if not data["more"]:
-            return None
-        if previous == after:
-            raise requests.RequestException("GoatCounter path pagination made no progress")
-        after = previous
-        sleep(0.3)
+    # The docs say ID order, but paths.List.sql orders by path, path_id while
+    # its cursor filters by ID. Do not require increasing IDs or advance that
+    # cursor: doing so can skip the counter on a larger site.
+    # https://github.com/arp242/goatcounter/blob/main/db/query/paths.List.sql
+    data = api_get(code, token, "paths", {"limit": 200, "after": 0})
+    if "paths" not in data or type(data.get("more")) is not bool:
+        raise requests.RequestException("GoatCounter returned an invalid path list")
+    paths = data["paths"]
+    if paths is None:
+        paths = []
+    if not isinstance(paths, list) or (not paths and data["more"]):
+        raise requests.RequestException("GoatCounter returned an invalid path list")
+    seen = set()
+    session_id = None
+    for path in paths:
+        if (not isinstance(path, dict) or type(path.get("id")) is not int
+                or path["id"] <= 0 or not isinstance(path.get("path"), str)):
+            raise requests.RequestException("GoatCounter returned an invalid path record")
+        if path["id"] in seen:
+            raise requests.RequestException("GoatCounter returned a repeated path ID")
+        seen.add(path["id"])
+        if path["path"] == SITEWIDE_SESSION_EVENT:
+            if path.get("event") is not True:
+                raise requests.RequestException("The site-wide session counter is not an event")
+            if session_id is not None:
+                raise requests.RequestException("GoatCounter returned multiple session counters")
+            session_id = path["id"]
+    if session_id is not None or not data["more"]:
+        return session_id
+
+    # A truncated list cannot establish that the event is absent. Resolve it
+    # by exact name using recent hits instead. The API's default date range
+    # includes the current hour, allowing discovery just after installation.
+    # This query discovers an ID only; report totals still use explicit ranges.
+    sleep(0.3)
+    data = api_get(code, token, "stats/hits", {
+        "path_by_name": "true", "include_paths": SITEWIDE_SESSION_EVENT, "limit": 1,
+    })
+    if "hits" not in data or data.get("more") is not False:
+        raise requests.RequestException("GoatCounter returned an invalid session lookup")
+    hits = data["hits"]
+    if hits is None:
+        hits = []
+    if not isinstance(hits, list) or len(hits) > 1:
+        raise requests.RequestException("GoatCounter returned an invalid session lookup")
+    if not hits:
+        if not valid_count(data.get("total")) or data["total"] != 0:
+            raise requests.RequestException("GoatCounter returned an inconsistent session lookup")
+        raise requests.RequestException(
+            "Could not verify the site-wide session counter: the path list is truncated "
+            "and the counter has no recent recorded sessions. This is not a zero count.")
+    hit = hits[0]
+    if (not isinstance(hit, dict) or hit.get("path") != SITEWIDE_SESSION_EVENT
+            or hit.get("event") is not True or type(hit.get("path_id")) is not int
+            or hit["path_id"] <= 0 or not valid_count(hit.get("count"))):
+        raise requests.RequestException("GoatCounter returned an invalid session lookup")
+    return hit["path_id"]
 
 
 def hit_summary(code: str, token: str, start: datetime, end: datetime,

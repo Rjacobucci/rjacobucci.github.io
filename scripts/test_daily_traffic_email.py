@@ -162,22 +162,30 @@ class ApiGetTests(ReportTestCase):
 
 
 class SessionPathTests(ReportTestCase):
-    def test_finds_event_on_later_page_with_increasing_cursor(self):
-        replies = [
-            {"paths": [{"id": 2, "path": "/"}, {"id": 5, "path": "/work/"}], "more": True},
-            {"paths": [{"id": 8, "path": report.SITEWIDE_SESSION_EVENT, "event": True}], "more": False},
-        ]
-        with patch.object(report, "api_get", side_effect=replies) as api_get:
+    def test_unordered_ids_find_marker_on_one_page(self):
+        # GoatCounter's SQL orders by path, path_id, despite documentation
+        # describing ID order. A later alphabetic path can have a smaller ID.
+        payload = {"paths": [{"id": 90, "path": "/", "event": False},
+                             {"id": 4, "path": "/work", "event": False},
+                             {"id": 2, "path": report.SITEWIDE_SESSION_EVENT, "event": True}],
+                   "more": False}
+        with patch.object(report, "api_get", return_value=payload) as api_get:
+            self.assertEqual(2, report.find_session_path_id("rjacobucci", "token"))
+        api_get.assert_called_once_with("rjacobucci", "token", "paths", {"limit": 200, "after": 0})
+
+    def test_marker_in_truncated_page_needs_no_further_requests(self):
+        payload = {"paths": [{"id": 8, "path": report.SITEWIDE_SESSION_EVENT, "event": True}],
+                   "more": True}
+        with patch.object(report, "api_get", return_value=payload) as api_get:
             self.assertEqual(8, report.find_session_path_id("rjacobucci", "token"))
-        self.assertEqual([
-            call("rjacobucci", "token", "paths", {"limit": 200, "after": 0}),
-            call("rjacobucci", "token", "paths", {"limit": 200, "after": 5}),
-        ], api_get.call_args_list)
+        api_get.assert_called_once()
 
     def test_absent_event_is_none_not_zero(self):
-        for paths in [None, [], [{"id": 1, "path": "/"}]]:
-            with self.subTest(paths=paths), patch.object(report, "api_get", return_value={"paths": paths, "more": False}):
+        for paths in [None, [], [{"id": 1, "path": "/"}],
+                      [{"id": 20, "path": "/a"}, {"id": 1, "path": "/b"}]]:
+            with self.subTest(paths=paths), patch.object(report, "api_get", return_value={"paths": paths, "more": False}) as api_get:
                 self.assertIsNone(report.find_session_path_id("rjacobucci", "token"))
+                api_get.assert_called_once()
 
     def test_marker_must_be_an_event(self):
         for event in [None, False, "true", 1]:
@@ -186,22 +194,77 @@ class SessionPathTests(ReportTestCase):
                 with self.assertRaises(requests.RequestException):
                     report.find_session_path_id("rjacobucci", "token")
 
-    def test_malformed_and_nonprogressing_path_lists_fail(self):
+    def test_malformed_path_lists_fail(self):
         payloads = [{}, {"paths": {}, "more": False}, {"paths": [], "more": "false"},
                     {"paths": None, "more": True}, {"paths": [], "more": True},
+                    {"paths": [None], "more": False},
+                    {"paths": [{"path": "/"}], "more": False},
                     {"paths": [{"id": True, "path": "/"}], "more": False},
                     {"paths": [{"id": 0, "path": "/"}], "more": False},
-                    {"paths": [{"id": 1, "path": None}], "more": False},
-                    {"paths": [{"id": 2, "path": "/a"}, {"id": 1, "path": "/b"}], "more": False}]
+                    {"paths": [{"id": -1, "path": "/"}], "more": False},
+                    {"paths": [{"id": "1", "path": "/"}], "more": False},
+                    {"paths": [{"id": 1, "path": None}], "more": False}]
         for payload in payloads:
             with self.subTest(payload=payload), patch.object(report, "api_get", return_value=payload):
                 with self.assertRaises(requests.RequestException):
                     report.find_session_path_id("rjacobucci", "token")
 
-    def test_repeated_path_page_fails(self):
-        payload = {"paths": [{"id": 2, "path": "/"}], "more": True}
-        with patch.object(report, "api_get", side_effect=[payload, payload]) as api_get:
+    def test_duplicate_path_ids_are_rejected(self):
+        payload = {"paths": [{"id": 2, "path": "/a"}, {"id": 2, "path": "/b"}], "more": False}
+        with patch.object(report, "api_get", return_value=payload) as api_get:
             with self.assertRaises(requests.RequestException):
+                report.find_session_path_id("rjacobucci", "token")
+        api_get.assert_called_once()
+
+    def test_truncated_listing_uses_exact_name_not_an_unsafe_id_cursor(self):
+        replies = [
+            {"paths": [{"id": 90, "path": "/a"}, {"id": 20, "path": "/b"}], "more": True},
+            {"hits": [{**hit(2, report.SITEWIDE_SESSION_EVENT, 3), "event": True}],
+             "total": 3, "more": False},
+        ]
+        with patch.object(report, "api_get", side_effect=replies) as api_get:
+            self.assertEqual(2, report.find_session_path_id("rjacobucci", "token"))
+        # Do not constrain ID discovery to completed report hours. API defaults
+        # include the current hour, allowing discovery of a newly recorded event.
+        self.assertEqual([
+            call("rjacobucci", "token", "paths", {"limit": 200, "after": 0}),
+            call("rjacobucci", "token", "stats/hits", {
+                "path_by_name": "true", "include_paths": report.SITEWIDE_SESSION_EVENT, "limit": 1}),
+        ], api_get.call_args_list)
+
+    def test_empty_named_lookup_is_unknown_not_zero_or_missing(self):
+        for hits in [None, []]:
+            replies = [{"paths": [{"id": 90, "path": "/a"}], "more": True},
+                       {"hits": hits, "total": 0, "more": False}]
+            with self.subTest(hits=hits), patch.object(report, "api_get", side_effect=replies) as api_get:
+                with self.assertRaisesRegex(requests.RequestException, "Could not verify"):
+                    report.find_session_path_id("rjacobucci", "token")
+                self.assertEqual(2, api_get.call_count)
+
+    def test_invalid_named_discovery_is_rejected(self):
+        valid = {**hit(8, report.SITEWIDE_SESSION_EVENT, 3), "event": True}
+        invalid_hits = [None, {}, {**valid, "path": "/"}, {**valid, "event": False},
+                        {**valid, "event": 1}, {**valid, "event": "true"},
+                        {**valid, "path_id": 0}, {**valid, "path_id": -1},
+                        {**valid, "path_id": True}, {**valid, "path_id": "8"},
+                        {**valid, "count": -1}, {**valid, "count": True},
+                        {**valid, "count": "3"}, {k: v for k, v in valid.items() if k != "count"}]
+        payloads = [{"hits": [h], "total": 3, "more": False} for h in invalid_hits]
+        payloads += [{}, {"hits": {}, "more": False},
+                     {"hits": [valid], "more": True}, {"hits": [valid], "more": "false"},
+                     {"hits": [valid]}, {"hits": [valid, valid], "more": False},
+                     {"hits": [], "total": 5, "more": False}, {"hits": [], "more": False}]
+        for payload in payloads:
+            replies = [{"paths": [{"id": 90, "path": "/a"}], "more": True}, payload]
+            with self.subTest(payload=payload), patch.object(report, "api_get", side_effect=replies):
+                with self.assertRaises(requests.RequestException):
+                    report.find_session_path_id("rjacobucci", "token")
+
+    def test_named_discovery_request_failure_remains_unavailable(self):
+        replies = [{"paths": [{"id": 90, "path": "/a"}], "more": True},
+                   requests.Timeout("discovery timed out")]
+        with patch.object(report, "api_get", side_effect=replies) as api_get:
+            with self.assertRaisesRegex(requests.RequestException, "discovery timed out"):
                 report.find_session_path_id("rjacobucci", "token")
         self.assertEqual(2, api_get.call_count)
 
@@ -511,6 +574,49 @@ class MainTests(ReportTestCase):
         with patch.object(report, "period_summary", return_value=report.PeriodSummary(0, [])):
             with self.assertRaises(smtplib.SMTPException):
                 report.main()
+
+
+class ReportIntegrationTests(ReportTestCase):
+    def test_unordered_path_response_produces_filtered_24_hour_report(self):
+        # Exercise real lookup, aggregation, and email formatting together;
+        # only HTTP, environment, time, and email delivery are replaced.
+        self.http.side_effect = [
+            response(payload={"paths": [
+                {"id": 90, "path": "/", "event": False},
+                {"id": 20, "path": "/work", "event": False},
+                {"id": 2, "path": report.SITEWIDE_SESSION_EVENT, "event": True}], "more": False}),
+            response(payload={"hits": [hit(2, report.SITEWIDE_SESSION_EVENT, 3)], "total": 0, "more": False}),
+            response(payload={"hits": [hit(2, report.SITEWIDE_SESSION_EVENT, 12)], "total": 0, "more": False}),
+            response(payload={"hits": [hit(90, "/", 10), hit(20, "/work", 4),
+                                       hit(2, report.SITEWIDE_SESSION_EVENT, 3)], "total": 17, "more": False}),
+        ]
+        values = {"GOATCOUNTER_CODE": "rjacobucci", "GOATCOUNTER_API_TOKEN": "test-token",
+                  "GMAIL_USER": "sender@example.com", "GMAIL_APP_PASSWORD": "test-password",
+                  "DAILY_EMAIL_TO": "recipient@example.com"}
+        with patch.object(report, "datetime", wraps=datetime) as clock, \
+                patch.object(report, "env", side_effect=values.__getitem__), \
+                patch.object(report, "send_email") as email, patch("builtins.print"):
+            clock.now.return_value = datetime(2026, 10, 28, 19, 17, tzinfo=timezone.utc)
+            self.assertEqual(0, report.main())
+
+        self.assertEqual(4, self.http.call_count)
+        params = [invocation.kwargs["params"] for invocation in self.http.call_args_list]
+        self.assertEqual({"limit": 200, "after": 0}, params[0])
+        self.assertEqual({"start": "2026-10-27T19:00:00Z", "end": "2026-10-28T18:00:00Z",
+                          "include_paths": "2", "limit": 100}, params[1])
+        self.assertEqual({"start": "2026-10-21T19:00:00Z", "end": "2026-10-28T18:00:00Z",
+                          "include_paths": "2", "limit": 100}, params[2])
+        self.assertNotIn("include_paths", params[3])
+        email.assert_called_once()
+        self.assertIn("3 visitor sessions in the last 24 hours", email.call_args.args[3])
+        body = email.call_args.args[4]
+        self.assertIn("Last 24 hours: 3", body)
+        self.assertIn("Last 7 days:   12", body)
+        self.assertIn("2026-10-27 19:00 to 2026-10-28 19:00 UTC", body)
+        self.assertIn("    10  /", body)
+        self.assertIn("     4  /work", body)
+        self.assertNotIn(report.SITEWIDE_SESSION_EVENT, body)
+        self.assertNotIn("unavailable", body)
 
 
 if __name__ == "__main__":
