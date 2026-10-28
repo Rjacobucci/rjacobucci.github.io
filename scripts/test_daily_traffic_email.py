@@ -1,8 +1,9 @@
 import json
 import smtplib
 import unittest
-from datetime import date, datetime, timezone
+from datetime import datetime, timedelta, timezone
 from unittest.mock import call, patch
+from zoneinfo import ZoneInfo
 
 import requests
 
@@ -28,7 +29,8 @@ def hit(path_id=1, path="/", count=2):
 
 class ReportTestCase(unittest.TestCase):
     def setUp(self):
-        self.start, self.end = date(2026, 9, 20), date(2026, 9, 21)
+        self.start = datetime(2026, 9, 20, tzinfo=timezone.utc)
+        self.end = datetime(2026, 9, 21, tzinfo=timezone.utc)
         # Guard every test against accidental network traffic.
         self.http = self.enterContext(patch.object(
             report.SESSION, "get", side_effect=AssertionError("Unexpected HTTP request")))
@@ -44,11 +46,52 @@ class RangeTests(ReportTestCase):
     def test_week_crosses_year_without_including_next_midnight(self):
         self.assertEqual(
             {"start": "2026-12-25T00:00:00Z", "end": "2026-12-31T23:00:00Z"},
-            report.range_params(date(2026, 12, 25), date(2027, 1, 1)))
+            report.range_params(datetime(2026, 12, 25, tzinfo=timezone.utc),
+                                datetime(2027, 1, 1, tzinfo=timezone.utc)))
 
     def test_leap_day(self):
         self.assertEqual("2028-02-29T23:00:00Z",
-                         report.range_params(date(2028, 2, 29), date(2028, 3, 1))["end"])
+                         report.range_params(datetime(2028, 2, 29, tzinfo=timezone.utc),
+                                             datetime(2028, 3, 1, tzinfo=timezone.utc))["end"])
+
+    def test_nonmidnight_rolling_windows_preserve_hour_and_exclude_partial_hour(self):
+        now = datetime(2026, 10, 28, 13, 32, 15, 999, tzinfo=timezone.utc)
+        start, week_start, end = report.report_windows(now)
+        self.assertEqual(datetime(2026, 10, 28, 13, tzinfo=timezone.utc), end)
+        self.assertEqual(timedelta(hours=24), end - start)
+        self.assertEqual(timedelta(hours=168), end - week_start)
+        self.assertEqual({"start": "2026-10-27T13:00:00Z", "end": "2026-10-28T12:00:00Z"},
+                         report.range_params(start, end))
+
+    def test_rolling_windows_cross_year(self):
+        start, week_start, end = report.report_windows(datetime(2027, 1, 1, 13, 45, tzinfo=timezone.utc))
+        self.assertEqual(datetime(2026, 12, 31, 13, tzinfo=timezone.utc), start)
+        self.assertEqual(datetime(2026, 12, 25, 13, tzinfo=timezone.utc), week_start)
+        self.assertEqual(datetime(2027, 1, 1, 13, tzinfo=timezone.utc), end)
+
+    def test_dst_fall_back_still_uses_24_elapsed_hours(self):
+        now = datetime(2026, 11, 1, 1, 35, tzinfo=ZoneInfo("America/Chicago"), fold=1)
+        start, week_start, end = report.report_windows(now)
+        self.assertEqual(datetime(2026, 11, 1, 7, tzinfo=timezone.utc), end)
+        self.assertEqual(timedelta(hours=24), end - start)
+        self.assertEqual(timedelta(hours=168), end - week_start)
+
+    def test_timezone_offset_is_converted_before_flooring(self):
+        now = datetime(2026, 10, 28, 19, 10, tzinfo=timezone(timedelta(hours=5, minutes=30)))
+        self.assertEqual(datetime(2026, 10, 28, 13, tzinfo=timezone.utc), report.report_windows(now)[2])
+
+    def test_local_end_at_dst_fold_subtracts_one_elapsed_hour(self):
+        start = datetime(2026, 10, 31, 7, tzinfo=timezone.utc)
+        end = datetime(2026, 11, 1, 1, tzinfo=ZoneInfo("America/Chicago"), fold=1)
+        self.assertEqual("2026-11-01T06:00:00Z", report.range_params(start, end)["end"])
+
+    def test_naive_and_unaligned_times_are_rejected(self):
+        with self.assertRaises(ValueError):
+            report.report_windows(datetime(2026, 10, 28, 13))
+        for invalid in [datetime(2026, 10, 28, 13), self.start + timedelta(minutes=1),
+                        self.start + timedelta(seconds=1), self.start + timedelta(microseconds=1)]:
+            with self.subTest(value=invalid), self.assertRaises(ValueError):
+                report.iso_hour(invalid)
 
     def test_empty_or_reversed_ranges_are_rejected(self):
         for start, end in [(self.start, self.start), (self.end, self.start)]:
@@ -67,8 +110,8 @@ class ApiGetTests(ReportTestCase):
                      "Accept": "application/json"}, timeout=20)
         self.pause.assert_not_called()
 
-    def test_transient_404_is_retried_on_both_statistics_routes(self):
-        for route in ["stats/hits", "stats/total"]:
+    def test_transient_404_is_retried_on_known_reporting_routes(self):
+        for route in ["stats/hits", "stats/total", "paths"]:
             with self.subTest(route=route):
                 self.http.reset_mock()
                 self.pause.reset_mock()
@@ -116,6 +159,51 @@ class ApiGetTests(ReportTestCase):
         self.http.side_effect = [invalid]
         with self.assertRaises(requests.RequestException):
             report.api_get("rjacobucci", "token", "stats/hits", {})
+
+
+class SessionPathTests(ReportTestCase):
+    def test_finds_event_on_later_page_with_increasing_cursor(self):
+        replies = [
+            {"paths": [{"id": 2, "path": "/"}, {"id": 5, "path": "/work/"}], "more": True},
+            {"paths": [{"id": 8, "path": report.SITEWIDE_SESSION_EVENT, "event": True}], "more": False},
+        ]
+        with patch.object(report, "api_get", side_effect=replies) as api_get:
+            self.assertEqual(8, report.find_session_path_id("rjacobucci", "token"))
+        self.assertEqual([
+            call("rjacobucci", "token", "paths", {"limit": 200, "after": 0}),
+            call("rjacobucci", "token", "paths", {"limit": 200, "after": 5}),
+        ], api_get.call_args_list)
+
+    def test_absent_event_is_none_not_zero(self):
+        for paths in [None, [], [{"id": 1, "path": "/"}]]:
+            with self.subTest(paths=paths), patch.object(report, "api_get", return_value={"paths": paths, "more": False}):
+                self.assertIsNone(report.find_session_path_id("rjacobucci", "token"))
+
+    def test_marker_must_be_an_event(self):
+        for event in [None, False, "true", 1]:
+            payload = {"paths": [{"id": 1, "path": report.SITEWIDE_SESSION_EVENT, "event": event}], "more": False}
+            with self.subTest(event=event), patch.object(report, "api_get", return_value=payload):
+                with self.assertRaises(requests.RequestException):
+                    report.find_session_path_id("rjacobucci", "token")
+
+    def test_malformed_and_nonprogressing_path_lists_fail(self):
+        payloads = [{}, {"paths": {}, "more": False}, {"paths": [], "more": "false"},
+                    {"paths": None, "more": True}, {"paths": [], "more": True},
+                    {"paths": [{"id": True, "path": "/"}], "more": False},
+                    {"paths": [{"id": 0, "path": "/"}], "more": False},
+                    {"paths": [{"id": 1, "path": None}], "more": False},
+                    {"paths": [{"id": 2, "path": "/a"}, {"id": 1, "path": "/b"}], "more": False}]
+        for payload in payloads:
+            with self.subTest(payload=payload), patch.object(report, "api_get", return_value=payload):
+                with self.assertRaises(requests.RequestException):
+                    report.find_session_path_id("rjacobucci", "token")
+
+    def test_repeated_path_page_fails(self):
+        payload = {"paths": [{"id": 2, "path": "/"}], "more": True}
+        with patch.object(report, "api_get", side_effect=[payload, payload]) as api_get:
+            with self.assertRaises(requests.RequestException):
+                report.find_session_path_id("rjacobucci", "token")
+        self.assertEqual(2, api_get.call_count)
 
 
 class HitSummaryTests(ReportTestCase):
@@ -196,37 +284,77 @@ class HitSummaryTests(ReportTestCase):
             with self.subTest(batch=batch), self.assertRaises(requests.RequestException):
                 self.summarize({"hits": batch, "total": 0, "more": True})
 
+    def test_shared_marker_is_excluded_from_ranking_but_used_for_pagination(self):
+        replies = [
+            {"hits": [hit(8, report.SITEWIDE_SESSION_EVENT, 100)], "total": 100, "more": True},
+            {"hits": [hit(2, "/work", 3), hit(3, "404: /missing", 1)], "total": 4, "more": False},
+        ]
+        with patch.object(report, "api_get", side_effect=replies) as api_get:
+            total, pages = report.hit_summary("rjacobucci", "token", self.start, self.end)
+        self.assertEqual((4, [("/work", 3), ("404: /missing", 1)]), (total, pages))
+        self.assertEqual("8", api_get.call_args_list[1].args[3]["exclude_paths"])
+
+    def test_filtered_query_counts_only_requested_event(self):
+        payload = {"hits": [hit(8, report.SITEWIDE_SESSION_EVENT, 4)], "total": 999, "more": False}
+        with patch.object(report, "api_get", return_value=payload) as api_get:
+            total, _ = report.hit_summary("rjacobucci", "token", self.start, self.end, include_path_id=8)
+        self.assertEqual(4, total)
+        self.assertEqual("8", api_get.call_args.args[3]["include_paths"])
+
+    def test_filtered_query_rejects_unrequested_path(self):
+        payload = {"hits": [hit(9, "/work", 40)], "total": 40, "more": False}
+        with patch.object(report, "api_get", return_value=payload):
+            with self.assertRaises(requests.RequestException):
+                report.hit_summary("rjacobucci", "token", self.start, self.end, include_path_id=8)
+
+    def test_invalid_filter_id_fails_before_request(self):
+        for path_id in [0, -1, True, "8", 1.5]:
+            with self.subTest(path_id=path_id), self.assertRaises(ValueError):
+                report.hit_summary("rjacobucci", "token", self.start, self.end, include_path_id=path_id)
+        self.http.assert_not_called()
+
 
 class PeriodSummaryTests(ReportTestCase):
+    def summarize(self):
+        return report.period_summary("rjacobucci", "token", self.start, self.end, include_path_id=8)
+
     def test_successful_hit_summary_does_not_call_fallback(self):
-        with patch.object(report, "hit_summary", return_value=(3, [("/", 3)])), \
+        with patch.object(report, "hit_summary", return_value=(3, [])) as hits, \
                 patch.object(report, "api_get") as api_get:
-            result = report.period_summary("rjacobucci", "token", self.start, self.end)
-        self.assertEqual(report.PeriodSummary(3, [("/", 3)]), result)
+            result = self.summarize()
+        self.assertEqual(report.PeriodSummary(3, []), result)
+        hits.assert_called_once_with("rjacobucci", "token", self.start, self.end, include_path_id=8)
         api_get.assert_not_called()
+
+    def test_filter_is_required(self):
+        with self.assertRaises(TypeError):
+            report.period_summary("rjacobucci", "token", self.start, self.end)
 
     def test_404_uses_total_not_total_utc_and_marks_pages_unavailable(self):
         with patch.object(report, "hit_summary", side_effect=http_error()), \
                 patch.object(report, "api_get", return_value={"total": 12, "total_utc": 0}) as api_get:
-            result = report.period_summary("rjacobucci", "token", self.start, self.end)
+            result = self.summarize()
         self.assertEqual(report.PeriodSummary(12), result)
         api_get.assert_called_once_with("rjacobucci", "token", "stats/total", {
-            "start": "2026-09-20T00:00:00Z", "end": "2026-09-20T23:00:00Z"})
+            "start": "2026-09-20T00:00:00Z", "end": "2026-09-20T23:00:00Z", "include_paths": "8"})
 
     def test_second_page_404_discards_partial_counts_and_rankings(self):
-        replies = [{"hits": [hit(count=2)], "total": 2, "more": True}, http_error(), {"total": 8}]
+        replies = [{"hits": [hit(8, report.SITEWIDE_SESSION_EVENT, 2)], "total": 2, "more": True},
+                   http_error(), {"total": 8}]
         with patch.object(report, "api_get", side_effect=replies) as api_get:
-            result = report.period_summary("rjacobucci", "token", self.start, self.end)
+            result = self.summarize()
         self.assertEqual(report.PeriodSummary(8), result)
-        self.assertEqual("1", api_get.call_args_list[1].args[3]["exclude_paths"])
+        self.assertEqual("8", api_get.call_args_list[1].args[3]["exclude_paths"])
         self.assertEqual("stats/total", api_get.call_args_list[2].args[2])
-        self.assertEqual({"start", "end"}, set(api_get.call_args_list[2].args[3]))
+        self.assertEqual({"start", "end", "include_paths"}, set(api_get.call_args_list[2].args[3]))
+        for invocation in api_get.call_args_list:
+            self.assertEqual("8", invocation.args[3]["include_paths"])
 
     def test_zero_total_fallback_is_a_valid_count(self):
         with patch.object(report, "hit_summary", side_effect=http_error()), \
                 patch.object(report, "api_get", return_value={"total": 0}):
             self.assertEqual(report.PeriodSummary(0),
-                             report.period_summary("rjacobucci", "token", self.start, self.end))
+                             self.summarize())
 
     def test_non_404_failures_do_not_use_fallback(self):
         for error in [http_error(400), http_error(401), http_error(403),
@@ -234,7 +362,7 @@ class PeriodSummaryTests(ReportTestCase):
             with self.subTest(error=str(error)), \
                     patch.object(report, "hit_summary", side_effect=error), \
                     patch.object(report, "api_get") as api_get:
-                result = report.period_summary("rjacobucci", "token", self.start, self.end)
+                result = self.summarize()
                 self.assertIsNone(result.total)
                 self.assertIsNone(result.pages)
                 self.assertEqual(str(error), result.error)
@@ -246,7 +374,7 @@ class PeriodSummaryTests(ReportTestCase):
             with self.subTest(payload=payload), \
                     patch.object(report, "hit_summary", side_effect=http_error()), \
                     patch.object(report, "api_get", return_value=payload):
-                result = report.period_summary("rjacobucci", "token", self.start, self.end)
+                result = self.summarize()
                 self.assertIsNone(result.total)
                 self.assertIn("HTTP 404", result.error)
                 self.assertIn("invalid total count", result.error)
@@ -254,7 +382,7 @@ class PeriodSummaryTests(ReportTestCase):
     def test_both_routes_failing_preserves_both_errors(self):
         with patch.object(report, "hit_summary", side_effect=http_error()), \
                 patch.object(report, "api_get", side_effect=requests.Timeout("totals timeout")):
-            result = report.period_summary("rjacobucci", "token", self.start, self.end)
+            result = self.summarize()
         self.assertIsNone(result.total)
         self.assertIn("HTTP 404", result.error)
         self.assertIn("totals timeout", result.error)
@@ -263,34 +391,39 @@ class PeriodSummaryTests(ReportTestCase):
 class MainTests(ReportTestCase):
     def setUp(self):
         super().setUp()
-        self.now = datetime(2027, 1, 1, 0, 15, tzinfo=timezone.utc)
+        self.now = datetime(2027, 1, 1, 13, 15, tzinfo=timezone.utc)
         self.clock = self.enterContext(patch.object(report, "datetime", wraps=datetime))
         self.clock.now.return_value = self.now
-        self.local_date = self.enterContext(patch.object(report, "date", wraps=date))
-        self.local_date.today.return_value = date(2026, 12, 31)
         values = {"GOATCOUNTER_CODE": "rjacobucci", "GOATCOUNTER_API_TOKEN": "test-token",
                   "GMAIL_USER": "sender@example.com", "GMAIL_APP_PASSWORD": "test-password",
                   "DAILY_EMAIL_TO": "recipient@example.com"}
         self.enterContext(patch.object(report, "env", side_effect=values.__getitem__))
+        self.lookup = self.enterContext(patch.object(report, "find_session_path_id", return_value=8))
+        self.pages = self.enterContext(patch.object(report, "hit_summary", return_value=(100, [("/", 100)])))
         self.email = self.enterContext(patch.object(report, "send_email"))
         self.enterContext(patch("builtins.print"))
 
-    def test_queries_day_and_whole_week_independently_using_utc_date(self):
-        results = [report.PeriodSummary(3, [("/", 2), ("/publications", 1)]), report.PeriodSummary(12, [])]
+    def test_queries_rolling_day_and_week_independently_with_single_lookup(self):
+        results = [report.PeriodSummary(3), report.PeriodSummary(12)]
         with patch.object(report, "period_summary", side_effect=results) as summary:
             self.assertEqual(0, report.main())
+        end = datetime(2027, 1, 1, 13, tzinfo=timezone.utc)
         self.assertEqual([
-            call("rjacobucci", "test-token", date(2026, 12, 31), date(2027, 1, 1)),
-            call("rjacobucci", "test-token", date(2026, 12, 25), date(2027, 1, 1)),
+            call("rjacobucci", "test-token", end - timedelta(hours=24), end, include_path_id=8),
+            call("rjacobucci", "test-token", end - timedelta(days=7), end, include_path_id=8),
         ], summary.call_args_list)
-        self.local_date.today.assert_not_called()
-        self.assertTrue(all(item == call(timezone.utc) for item in self.clock.now.call_args_list))
+        self.clock.now.assert_called_once_with(timezone.utc)
+        self.lookup.assert_called_once_with("rjacobucci", "test-token")
+        self.pages.assert_called_once_with("rjacobucci", "test-token", end - timedelta(hours=24), end)
         self.email.assert_called_once()
-        self.assertIn("3 visits", self.email.call_args.args[3])
+        self.assertIn("3 visitor sessions in the last 24 hours", self.email.call_args.args[3])
         body = self.email.call_args.args[4]
-        self.assertIn("2026-12-25 through 2026-12-31 (UTC)", body)
-        self.assertIn("Visits last 7 days: 12", body)
-        self.assertIn("Top pages / events yesterday:", body)
+        self.assertIn("2026-12-31 13:00 to 2027-01-01 13:00 UTC", body)
+        self.assertIn("2026-12-25 13:00 to 2027-01-01 13:00 UTC", body)
+        self.assertIn("Last 7 days:   12", body)
+        self.assertIn("page/event visits, not visitors", body)
+        self.assertNotIn("100 visitor sessions", body)
+        self.assertIn("no historical backfill", body)
 
     def test_failed_day_keeps_successful_week_without_false_zero(self):
         results = [report.PeriodSummary(error="day API failed"), report.PeriodSummary(8, [])]
@@ -300,43 +433,78 @@ class MainTests(ReportTestCase):
         self.email.assert_called_once()
         self.assertIn("incomplete", self.email.call_args.args[3])
         body = self.email.call_args.args[4]
-        self.assertIn("Visits yesterday:   unavailable", body)
-        self.assertIn("Visits last 7 days: 8", body)
+        self.assertIn("Last 24 hours: unavailable", body)
+        self.assertIn("Last 7 days:   8", body)
         self.assertIn("day API failed", body)
-        self.assertIn("Top pages / events yesterday: unavailable", body)
-        self.assertNotIn("Visits yesterday:   0", body)
+        self.assertIn("Top pages / events in the 24-hour window", body)
+        self.assertNotIn("Last 24 hours: 0", body)
+        self.assertNotIn("Last 24 hours: 100", body)
 
     def test_failed_week_keeps_yesterday_and_top_pages(self):
         results = [report.PeriodSummary(2, [("/", 2)]), report.PeriodSummary(error="week API failed")]
         with patch.object(report, "period_summary", side_effect=results):
             self.assertEqual(1, report.main())
         body = self.email.call_args.args[4]
-        self.assertIn("Visits yesterday:   2", body)
-        self.assertIn("Visits last 7 days: unavailable", body)
-        self.assertIn("Top pages / events yesterday:\n     2  /", body)
+        self.assertIn("Last 24 hours: 2", body)
+        self.assertIn("Last 7 days:   unavailable", body)
+        self.assertIn("   100  /", body)
 
     def test_both_periods_failing_sends_one_incomplete_email(self):
         with patch.object(report, "period_summary", return_value=report.PeriodSummary(error="API failed")):
             self.assertEqual(1, report.main())
         self.email.assert_called_once()
         self.assertIn("incomplete", self.email.call_args.args[3])
-        self.assertIn("Unavailable counts are not zero visits.", self.email.call_args.args[4])
+        self.assertIn("Unavailable counts are not zero visitor sessions.", self.email.call_args.args[4])
 
     def test_successful_zero_is_not_marked_unavailable(self):
         with patch.object(report, "period_summary", return_value=report.PeriodSummary(0, [])):
             self.assertEqual(0, report.main())
-        self.assertIn("0 visits", self.email.call_args.args[3])
+        self.assertIn("0 visitor sessions", self.email.call_args.args[3])
         body = self.email.call_args.args[4]
-        self.assertIn("Visits yesterday:   0", body)
-        self.assertIn("Visits last 7 days: 0", body)
+        self.assertIn("Last 24 hours: 0", body)
+        self.assertIn("Last 7 days:   0", body)
         self.assertNotIn("unavailable", body.lower())
 
-    def test_zero_from_totals_fallback_is_valid_but_pages_unavailable(self):
+    def test_zero_from_totals_fallback_keeps_independent_page_breakdown(self):
         with patch.object(report, "period_summary", return_value=report.PeriodSummary(0)):
             self.assertEqual(0, report.main())
-        self.assertIn("0 visits", self.email.call_args.args[3])
+        self.assertIn("0 visitor sessions", self.email.call_args.args[3])
         self.assertNotIn("incomplete", self.email.call_args.args[3])
-        self.assertIn("Top pages / events yesterday: unavailable", self.email.call_args.args[4])
+        self.assertIn("Top pages / events in the 24-hour window", self.email.call_args.args[4])
+        self.assertIn("   100  /", self.email.call_args.args[4])
+
+    def test_missing_first_event_is_unavailable_even_with_page_traffic(self):
+        self.lookup.return_value = None
+        with patch.object(report, "period_summary") as summary:
+            self.assertEqual(1, report.main())
+        summary.assert_not_called()
+        self.pages.assert_called_once()
+        body = self.email.call_args.args[4]
+        self.assertIn("Last 24 hours: unavailable", body)
+        self.assertIn("Last 7 days:   unavailable", body)
+        self.assertIn("has not recorded its first event", body)
+        self.assertIn("   100  /", body)
+        self.assertNotIn("Last 24 hours: 0", body)
+        self.assertNotIn("100 visitor sessions", body)
+
+    def test_failed_marker_lookup_still_fetches_top_pages(self):
+        self.lookup.side_effect = requests.Timeout("path lookup failed")
+        with patch.object(report, "period_summary") as summary:
+            self.assertEqual(1, report.main())
+        summary.assert_not_called()
+        self.pages.assert_called_once()
+        self.assertIn("path lookup failed", self.email.call_args.args[4])
+        self.assertIn("   100  /", self.email.call_args.args[4])
+
+    def test_failed_top_page_query_does_not_erase_valid_sessions(self):
+        self.pages.side_effect = requests.Timeout("pages failed")
+        with patch.object(report, "period_summary", side_effect=[report.PeriodSummary(3), report.PeriodSummary(12)]):
+            self.assertEqual(0, report.main())
+        body = self.email.call_args.args[4]
+        self.assertIn("Last 24 hours: 3", body)
+        self.assertIn("Last 7 days:   12", body)
+        self.assertIn("Top pages / events: unavailable", body)
+        self.assertIn("pages failed", body)
 
     def test_smtp_failure_is_not_reported_as_success(self):
         self.email.side_effect = smtplib.SMTPException("mail unavailable")

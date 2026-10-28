@@ -1,19 +1,46 @@
 <!-- start custom analytics snippet -->
 {% if site.analytics.goatcounter.code %}
-{% if page.url == '/404.html' %}
 <script>
+  window.goatcounter = window.goatcounter || {};
+  {% if page.url == '/404.html' %}
   // Override the shared /404.html canonical URL with the requested path.
   // Omit query strings and fragments, which may contain private information.
-  window.goatcounter = window.goatcounter || {};
   window.goatcounter.path = function () {
     return '404: ' + window.location.pathname;
   };
   window.goatcounter.title = 'Page not found';
   // Treat the label as an event so the dashboard won't link to a fake URL.
   window.goatcounter.event = true;
+  {% endif %}
+
+  (function () {
+    var counted = false;
+    window.countSitewideSession = function countSitewideSession() {
+      if (counted || typeof window.goatcounter.count !== 'function') return;
+      if (document.body === null) {
+        document.addEventListener('DOMContentLoaded', countSitewideSession, false);
+        return;
+      }
+      document.removeEventListener('DOMContentLoaded', countSitewideSession, false);
+      // Match GoatCounter's automatic page tracking: don't count unseen tabs.
+      if ('visibilityState' in document && document.visibilityState !== 'visible') {
+        document.addEventListener('visibilitychange', countSitewideSession, false);
+        return;
+      }
+      document.removeEventListener('visibilitychange', countSitewideSession, false);
+      counted = true;
+      // One shared event lets GoatCounter deduplicate a session across pages.
+      // Keep normal filtering/session handling; don't set no_session.
+      window.goatcounter.count({
+        path: '__sitewide_session',
+        title: 'Site-wide visitor session',
+        event: true
+      });
+    };
+  })();
 </script>
-{% endif %}
 <script data-goatcounter="https://{{ site.analytics.goatcounter.code }}.goatcounter.com/count"
-        async src="https://gc.zgo.at/count.js"></script>
+        async src="https://gc.zgo.at/count.js"
+        onload="window.countSitewideSession()"></script>
 {% endif %}
 <!-- end custom analytics snippet -->

@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
 """
-Pull yesterday's traffic from GoatCounter and email a short summary.
+Email site-wide visitor sessions and a separate page-visit breakdown.
 Run by GitHub Actions on a daily schedule (.github/workflows/daily-traffic-email.yml).
 
-Fetch yesterday and the previous seven complete UTC days independently.
-Counts are page or event visits, not unique people across the whole site.
-See https://www.goatcounter.com/help/sessions for the counting definition.
-The API includes both endpoint hours, so an exclusive midnight end is sent
-as the preceding 23:00 hour. Paginated page counts provide both the total
-and top pages; /stats/total is a fallback if the page-list route returns 404.
-An unavailable count is never reported as zero.
+Every page sends the same __sitewide_session event. With GoatCounter's
+Sessions setting enabled, this event is counted once per visitor session
+across the site. No persistent browser identifier is added. A returning
+visitor can start a new session; this is not a count of distinct people.
+
+Report the latest 24 and 168 complete UTC hours, not yesterday's calendar
+date. GoatCounter includes both endpoint hours, so send end minus one hour.
+Session totals always filter to the shared event; never substitute the sum
+of page visits. Exclude the shared event from the top-page breakdown.
+New session data begins at deployment and cannot be backfilled.
 
 Required env vars:
   GOATCOUNTER_CODE        e.g. "rjacobucci" (subdomain at *.goatcounter.com)
@@ -22,13 +25,15 @@ import os
 import smtplib
 import sys
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 from time import sleep
 
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+
+SITEWIDE_SESSION_EVENT = "__sitewide_session"
 
 SESSION = requests.Session()
 SESSION.mount("https://", HTTPAdapter(max_retries=Retry(
@@ -47,18 +52,34 @@ def env(name: str) -> str:
     return val
 
 
-def iso_hour(d: date) -> str:
-    """Midnight UTC of `d` as an hour-rounded RFC3339 timestamp."""
-    return datetime(d.year, d.month, d.day, tzinfo=timezone.utc).strftime(
-        "%Y-%m-%dT%H:%M:%SZ")
+def iso_hour(value: datetime) -> str:
+    """Format an explicit, hour-aligned UTC instant without dropping its hour."""
+    if value.utcoffset() is None:
+        raise ValueError("Report times must include a timezone")
+    value = value.astimezone(timezone.utc)
+    if value.minute or value.second or value.microsecond:
+        raise ValueError("Report times must be rounded to the hour")
+    return value.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def range_params(start: date, end: date) -> dict:
+def range_params(start: datetime, end: datetime) -> dict:
     """Translate [start, end) into GoatCounter's inclusive hourly bounds."""
+    start_text = iso_hour(start)
+    iso_hour(end)  # Validate before subtracting the final hour.
+    # Do arithmetic in UTC: local-time subtraction is ambiguous at DST folds.
+    start = start.astimezone(timezone.utc)
+    end = end.astimezone(timezone.utc)
     if start >= end:
         raise ValueError("Report start must be before end")
-    last_hour = datetime(end.year, end.month, end.day, tzinfo=timezone.utc) - timedelta(hours=1)
-    return {"start": iso_hour(start), "end": last_hour.strftime("%Y-%m-%dT%H:%M:%SZ")}
+    return {"start": start_text, "end": iso_hour(end - timedelta(hours=1))}
+
+
+def report_windows(now: datetime) -> tuple[datetime, datetime, datetime]:
+    """Return (24-hour start, seven-day start, exclusive end)."""
+    if now.utcoffset() is None:
+        raise ValueError("Report times must include a timezone")
+    end = now.astimezone(timezone.utc).replace(minute=0, second=0, microsecond=0)
+    return end - timedelta(hours=24), end - timedelta(days=7), end
 
 
 def api_get(code: str, token: str, path: str, params: dict) -> dict:
@@ -73,7 +94,7 @@ def api_get(code: str, token: str, path: str, params: dict) -> dict:
                      "Accept": "application/json"},
             timeout=20,
         )
-        if r.status_code != 404 or path not in {"stats/hits", "stats/total"} or attempt == 2:
+        if r.status_code != 404 or path not in {"paths", "stats/hits", "stats/total"} or attempt == 2:
             break
         sleep(2 ** attempt)
     if not r.ok:  # surface the response body to make failures diagnosable
@@ -89,9 +110,41 @@ def valid_count(value) -> bool:
     return type(value) is int and value >= 0
 
 
-def hit_summary(code: str, token: str, start: date, end: date,
-                top_n: int = 5) -> tuple[int, list]:
-    """Return (total visits, top pages) over the half-open range [start, end)."""
+def find_session_path_id(code: str, token: str) -> int | None:
+    """Find the shared event, distinguishing not-yet-installed from zero visits."""
+    after = 0
+    while True:
+        data = api_get(code, token, "paths", {"limit": 200, "after": after})
+        if "paths" not in data or type(data.get("more")) is not bool:
+            raise requests.RequestException("GoatCounter returned an invalid path list")
+        paths = data["paths"]
+        if paths is None:
+            paths = []
+        if not isinstance(paths, list):
+            raise requests.RequestException("GoatCounter returned an invalid path list")
+        previous = after
+        for path in paths:
+            if (not isinstance(path, dict) or type(path.get("id")) is not int
+                    or path["id"] <= previous or not isinstance(path.get("path"), str)):
+                raise requests.RequestException("GoatCounter returned invalid path pagination")
+            previous = path["id"]
+            if path["path"] == SITEWIDE_SESSION_EVENT:
+                if path.get("event") is not True:
+                    raise requests.RequestException("The site-wide session counter is not an event")
+                return path["id"]
+        if not data["more"]:
+            return None
+        if previous == after:
+            raise requests.RequestException("GoatCounter path pagination made no progress")
+        after = previous
+        sleep(0.3)
+
+
+def hit_summary(code: str, token: str, start: datetime, end: datetime,
+                top_n: int = 5, *, include_path_id: int | None = None) -> tuple[int, list]:
+    """Fetch one event's count, or page visits with the shared counter excluded."""
+    if include_path_id is not None and (not valid_count(include_path_id) or include_path_id == 0):
+        raise ValueError("A positive path ID is required")
     excluded_path_ids = []
     seen_path_ids = set()
     hits = []
@@ -99,6 +152,8 @@ def hit_summary(code: str, token: str, start: date, end: date,
 
     while True:
         params = {**range_params(start, end), "limit": 100}
+        if include_path_id is not None:
+            params["include_paths"] = str(include_path_id)
         if excluded_path_ids:
             params["exclude_paths"] = ",".join(map(str, excluded_path_ids))
 
@@ -121,12 +176,16 @@ def hit_summary(code: str, token: str, start: date, end: date,
                 raise requests.RequestException("GoatCounter returned an invalid page count")
             if hit["path_id"] in seen_path_ids:
                 raise requests.RequestException("GoatCounter pagination returned a repeated path")
+            if include_path_id is not None and hit["path_id"] != include_path_id:
+                raise requests.RequestException("GoatCounter returned an unrequested path")
             seen_path_ids.add(hit["path_id"])
-        hits.extend(batch)
+        visible_batch = [h for h in batch
+                         if include_path_id is not None or h["path"] != SITEWIDE_SESSION_EVENT]
+        hits.extend(visible_batch)
         # Use the exact same counts displayed for top pages. The API's summary
         # total can differ with chart/timezone settings; path counts are the
         # database counts for the requested interval.
-        total += sum(h["count"] for h in batch)
+        total += sum(h["count"] for h in visible_batch)
 
         if not data.get("more", False):
             break
@@ -152,10 +211,11 @@ class PeriodSummary:
     error: str | None = None
 
 
-def period_summary(code: str, token: str, start: date, end: date) -> PeriodSummary:
-    """Return verified counts, or a clearly unavailable result on failure."""
+def period_summary(code: str, token: str, start: datetime, end: datetime,
+                   *, include_path_id: int) -> PeriodSummary:
+    """Return only the shared event's session count, never global page totals."""
     try:
-        total, pages = hit_summary(code, token, start, end)
+        total, pages = hit_summary(code, token, start, end, include_path_id=include_path_id)
         return PeriodSummary(total, pages)
     except requests.RequestException as error:
         if error.response is None or error.response.status_code != 404:
@@ -165,7 +225,8 @@ def period_summary(code: str, token: str, start: date, end: date) -> PeriodSumma
     # The separately documented totals route does not depend on page-list
     # pagination. A successful fallback cannot provide top-page rankings.
     try:
-        data = api_get(code, token, "stats/total", range_params(start, end))
+        params = {**range_params(start, end), "include_paths": str(include_path_id)}
+        data = api_get(code, token, "stats/total", params)
         if not valid_count(data.get("total")):
             raise requests.RequestException("GoatCounter returned an invalid total count")
         return PeriodSummary(data["total"])
@@ -191,42 +252,74 @@ def main() -> int:
     pw    = env("GMAIL_APP_PASSWORD")
     to    = env("DAILY_EMAIL_TO")
 
-    today = datetime.now(timezone.utc).date()  # exclusive end, independent of host timezone
-    yesterday = today - timedelta(days=1)
-    week_ago = today - timedelta(days=7)
-    day = period_summary(code, token, yesterday, today)
+    generated = datetime.now(timezone.utc)
+    day_start, week_start, end = report_windows(generated)
+    try:
+        session_id = find_session_path_id(code, token)
+        if session_id is None:
+            raise requests.RequestException(
+                "Site-wide session tracking has not recorded its first event. "
+                "Publish the updated website and allow new visits to be collected; "
+                "historical page totals cannot be converted into visitor sessions.")
+    except requests.RequestException as error:
+        day = PeriodSummary(error=str(error))
+        week = PeriodSummary(error=str(error))
+    else:
+        sleep(0.3)
+        day = period_summary(code, token, day_start, end, include_path_id=session_id)
+        sleep(0.3)
+        week = period_summary(code, token, week_start, end, include_path_id=session_id)
+
+    # Page visits are a different metric and remain useful if the session
+    # counter is not yet published or either of its requests fails.
     sleep(0.3)
-    week = period_summary(code, token, week_ago, today)
+    try:
+        page_total, pages = hit_summary(code, token, day_start, end)
+        page_summary = PeriodSummary(page_total, pages)
+    except requests.RequestException as error:
+        page_summary = PeriodSummary(error=str(error))
+
     incomplete = day.total is None or week.total is None
     if incomplete:
-        subject = f"[rjacobucci.com] {yesterday:%a %b %d}: traffic report incomplete"
+        subject = "[rjacobucci.com] last 24 hours: visitor report incomplete"
     else:
-        subject = f"[rjacobucci.com] {yesterday:%a %b %d}: {day.total} visits"
+        subject = f"[rjacobucci.com] {day.total} visitor sessions in the last 24 hours"
 
     def count_text(total):
         return "unavailable" if total is None else str(total)
 
     lines = [
-        f"Traffic for {yesterday:%A, %B %d, %Y} (UTC):",
-        f"  Visits yesterday:   {count_text(day.total)}",
-        f"  Visits last 7 days: {count_text(week.total)}",
-        f"  Seven-day window:   {week_ago:%Y-%m-%d} through {yesterday:%Y-%m-%d} (UTC)",
+        "Site-wide visitor sessions:",
+        f"  Last 24 hours: {count_text(day.total)}",
+        f"  Last 7 days:   {count_text(week.total)}",
+        "",
+        f"24-hour window: {day_start:%Y-%m-%d %H:%M} to {end:%Y-%m-%d %H:%M} UTC",
+        f"7-day window:   {week_start:%Y-%m-%d %H:%M} to {end:%Y-%m-%d %H:%M} UTC",
+        "Windows use complete hours; the current partial hour is excluded.",
         "",
     ]
-    if day.pages:
-        lines.append("Top pages / events yesterday:")
-        lines += [f"  {count:>4}  {path}" for path, count in day.pages]
+    if page_summary.pages:
+        lines.append("Top pages / events in the 24-hour window (page/event visits, not visitors):")
+        lines += [f"  {count:>4}  {path}" for path, count in page_summary.pages]
         lines.append("")
-    elif day.pages is None:
-        lines += ["Top pages / events yesterday: unavailable from GoatCounter.", ""]
+    elif page_summary.pages is None:
+        lines += ["Top pages / events: unavailable from GoatCounter.", ""]
     if incomplete:
-        lines += ["Unavailable counts are not zero visits.", ""]
-    for label, summary in [("Yesterday", day), ("Last 7 days", week)]:
+        lines += ["Unavailable counts are not zero visitor sessions.", ""]
+    for label, summary in [("Last 24 hours", day), ("Last 7 days", week),
+                           ("Top pages / events", page_summary)]:
         if summary.error:
             lines += [f"{label}: {summary.error}", ""]
     lines += [f"Dashboard: https://{code}.goatcounter.com",
-              "Visits are counted per page or tracked event, not as unique people across the site.",
-              f"Generated: {datetime.now(timezone.utc).isoformat()}"]
+              "",
+              "A session browsing several pages counts once. These are sessions first recorded",
+              "in each window, not distinct people or every session active during that window.",
+              "GoatCounter's session recognition expires after roughly 8 hours of inactivity;",
+              "a later return may count again. Keep GoatCounter's Sessions setting enabled.",
+              "",
+              "This metric starts when the updated website is published; no historical backfill.",
+              "Allow 24 hours for a full daily window and 7 days for a full weekly window.",
+              f"Generated: {generated.isoformat()}"]
     send_email(user, pw, to, subject, "\n".join(lines))
     print(f"[ok] emailed to {to}: {subject}")
     return 1 if incomplete else 0

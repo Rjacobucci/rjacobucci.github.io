@@ -3,7 +3,7 @@ name: Daily traffic email
 on:
   schedule:
     # 13:00 UTC daily = 8 AM Central during DST, 7 AM in standard time.
-    # Yesterday's data is settled by then.
+    # The report covers the latest 24 complete hours at its actual run time.
     - cron: '0 13 * * *'
   workflow_dispatch:  # manual trigger from the Actions tab
 
@@ -29,8 +29,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r scripts/requirements.txt
 
-      - name: Test traffic report
-        run: python -m unittest scripts.test_daily_traffic_email
+      - name: Test traffic report and visitor tracking
+        run: |
+          python -m unittest scripts.test_daily_traffic_email
+          node --test scripts/test_visitor_tracking.js
 
       - name: Send daily traffic email
         env:
