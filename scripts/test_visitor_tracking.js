@@ -12,12 +12,16 @@ const expectedEvent = {
 };
 
 function integration({is404 = false, body = {}, visibility = 'visible',
-  settings = {}, requestedPath = '/missing', filtered = false} = {}) {
-  const rendered = template
+  settings = {}, requestedPath = '/missing', filtered = false, compressed = true} = {}) {
+  let rendered = template
     .replace(/{% if page\.url == '\/404\.html' %}([\s\S]*?){% endif %}/g,
       (_, content) => is404 ? content : '')
     .replace(/{% if site\.analytics\.goatcounter\.code %}|{% endif %}/g, '')
     .replace('{{ site.analytics.goatcounter.code }}', 'offline-test');
+  // The production compress layout collapses whitespace inside script tags
+  // too. Run all behavior tests this way by default so // comments cannot
+  // silently swallow the rest of an inline script after deployment.
+  if (compressed) rendered = rendered.replace(/\s+/g, ' ').trim();
   const scripts = [...rendered.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/g)];
   const tracker = scripts.find((match) => /\bsrc=/.test(match[1]));
   assert.ok(tracker, 'external tracker remains present');
@@ -68,6 +72,24 @@ function integration({is404 = false, body = {}, visibility = 'visible',
       for (const listener of [...(listeners.get(name) || [])]) listener();
     }
   };
+}
+
+for (const compressed of [true, false]) {
+  for (const is404 of [false, true]) {
+    test(`${compressed ? 'production-compressed' : 'uncompressed'} ${is404 ? '404' : 'normal'} tracking`, () => {
+      const site = integration({compressed, is404, requestedPath: '/old-page',
+        settings: {path: '/normal-page', title: 'Normal page'}});
+      site.loadTracker();
+      assert.deepEqual(site.calls, [expectedEvent]);
+      assert.equal(typeof site.window.countSitewideSession, 'function');
+      site.window.goatcounter.count();
+      assert.deepEqual(site.accepted[1], is404 ? {
+        path: '404: /old-page', title: 'Page not found', event: true
+      } : {
+        path: '/normal-page', title: 'Normal page', event: false
+      });
+    });
+  }
 }
 
 test('visible page records one shared event without changing normal settings', () => {
